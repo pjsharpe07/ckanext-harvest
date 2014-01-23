@@ -90,6 +90,12 @@ class ViewController(BaseController):
 
     def show_object(self, id, ref_type='object'):
 
+        if hasattr(etree, 'ParseError'):
+            etree_exceptions = etree.ParseError
+        else:
+            from xml.parsers import expat
+            etree_exceptions = expat.ExpatError
+
         try:
             context = {'model':model, 'user':c.user}
             if ref_type == 'object':
@@ -114,7 +120,7 @@ class ViewController(BaseController):
                 if not '<?xml' in content.split('\n')[0]:
                     content = u'<?xml version="1.0" encoding="UTF-8"?>\n' + content
 
-            except xml_parser_exception:
+            except etree_exceptions:
                 try:
                     json.loads(obj['content'])
                     response.content_type = 'application/json; charset=utf-8'
