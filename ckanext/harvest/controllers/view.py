@@ -82,6 +82,12 @@ class ViewController(BaseController):
 
     def show_object(self,id):
 
+        if hasattr(etree, 'ParseError'):
+            etree_exceptions = etree.ParseError
+        else:
+            from xml.parsers import expat
+            etree_exceptions = expat.ExpatError
+
         try:
             context = {'model':model, 'user':c.user}
             obj = p.toolkit.get_action('harvest_object_show')(context, {'id':id})
@@ -96,12 +102,12 @@ class ViewController(BaseController):
                 else:
                     abort(404,_('No content found'))
 
-                etree.fromstring(re.sub('<\?xml(.*)\?>','',content))
+                etree.fromstring(re.sub('<\?xml(.*)\?>','', content.encode('ascii', 'ignore')))
                 response.content_type = 'application/xml; charset=utf-8'
                 if not '<?xml' in content.split('\n')[0]:
                     content = u'<?xml version="1.0" encoding="UTF-8"?>\n' + content
 
-            except etree.ParseError:
+            except etree_exceptions:
                 try:
                     json.loads(obj['content'])
                     response.content_type = 'application/json; charset=utf-8'
