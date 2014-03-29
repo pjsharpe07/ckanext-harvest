@@ -1,6 +1,5 @@
 import re
-from lxml import etree
-from lxml.etree import XMLSyntaxError
+import xml.etree.ElementTree as etree
 from pylons.i18n import _
 
 from ckan import model
@@ -8,7 +7,7 @@ from ckan import model
 import ckan.plugins as p
 import ckan.lib.helpers as h, json
 from ckan.lib.base import BaseController, c, \
-                          response, render, abort, redirect
+                          request, response, render, abort, redirect
 
 from ckanext.harvest.plugin import DATASET_TYPE_NAME
 
@@ -28,9 +27,15 @@ class ViewController(BaseController):
     def delete(self,id):
         try:
             context = {'model':model, 'user':c.user}
+
+            context['clear_source'] = request.params.get('clear', '').lower() in (u'true', u'1')
+
             p.toolkit.get_action('harvest_source_delete')(context, {'id':id})
 
-            h.flash_success(_('Harvesting source successfully inactivated'))
+            if context['clear_source']:
+                h.flash_success(_('Harvesting source successfully cleared'))
+            else:
+                h.flash_success(_('Harvesting source successfully inactivated'))
 
             redirect(h.url_for('{0}_admin'.format(DATASET_TYPE_NAME), id=id))
         except p.toolkit.ObjectNotFound:
@@ -60,6 +65,21 @@ class ViewController(BaseController):
 
         redirect(h.url_for('{0}_admin'.format(DATASET_TYPE_NAME), id=id))
 
+    def clear(self, id):
+        try:
+            context = {'model':model, 'user':c.user, 'session':model.Session}
+            p.toolkit.get_action('harvest_source_clear')(context,{'id':id})
+            h.flash_success(_('Harvest source cleared'))
+        except p.toolkit.ObjectNotFound:
+            abort(404,_('Harvest source not found'))
+        except p.toolkit.NotAuthorized:
+            abort(401,self.not_auth_message)
+        except Exception, e:
+            msg = 'An error occurred: [%s]' % str(e)
+            h.flash_error(msg)
+
+        redirect(h.url_for('{0}_admin'.format(DATASET_TYPE_NAME), id=id))
+
     def show_object(self,id):
 
         try:
@@ -81,7 +101,7 @@ class ViewController(BaseController):
                 if not '<?xml' in content.split('\n')[0]:
                     content = u'<?xml version="1.0" encoding="UTF-8"?>\n' + content
 
-            except XMLSyntaxError:
+            except etree.ParseError:
                 try:
                     json.loads(obj['content'])
                     response.content_type = 'application/json; charset=utf-8'

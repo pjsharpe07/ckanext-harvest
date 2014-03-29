@@ -8,24 +8,50 @@ and adds a CLI and a WUI to CKAN to manage harvesting sources and jobs.
 Installation
 ============
 
-The harvest extension uses Message Queuing to handle the different gather
-stages.
+1. The harvest extension can use two different backends. You can choose whichever
+   you prefer depending on your needs:
 
-You will need to install the RabbitMQ server::
+   * `RabbitMQ <http://www.rabbitmq.com/>`_: To install it, run::
 
-    sudo apt-get install rabbitmq-server
+      sudo apt-get install rabbitmq-server
 
-Clone the repository and set up the extension::
+   * `Redis <http://redis.io/>`_: To install it, run::
 
-    git clone https://github.com/okfn/ckanext-harvest
-    cd ckanext-harvest
-    pip install -r pip-requirements.txt
-    python setup.py develop
+      sudo apt-get install redis-server
 
-Make sure the CKAN configuration ini file contains the harvest main plugin, as
-well as the harvester for CKAN instances (included with the extension)::
+2. Install the extension into your python environment.
+
+   *Note:* Depending on the CKAN core version you are targeting you will need to
+   use a different branch from the extension.
+
+   For a production site, use the `stable` branch, unless there is a specific
+   branch that targets the CKAN core version that you are using.
+
+   To target the latest CKAN core release::
+
+     (pyenv) $ pip install -e git+https://github.com/okfn/ckanext-harvest.git@stable#egg=ckanext-harvest
+
+   To target an old release (if a release branch exists, otherwise use `stable`)::
+
+     (pyenv) $ pip install -e git+https://github.com/okfn/ckanext-harvest.git@release-v1.8#egg=ckanext-harvest
+
+   To target CKAN `master`, use the extension `master` branch (ie no branch defined)::
+
+     (pyenv) $ pip install -e git+https://github.com/okfn/ckanext-harvest.git#egg=ckanext-harvest
+
+3. Install the rest of python modules required by the extension::
+
+     (pyenv) $ pip install -r pip-requirements.txt
+
+4. Make sure the CKAN configuration ini file contains the harvest main plugin, as
+   well as the harvester for CKAN instances if you need it (included with the extension)::
 
     ckan.plugins = harvest ckan_harvester
+
+5. Also define the backend that you are using with the ``ckan.harvest.mq.type``
+   option (it defaults to ``rabbitmq``)::
+
+    ckan.harvest.mq.type = redis
 
 
 Configuration
@@ -35,13 +61,7 @@ Run the following command to create the necessary tables in the database::
 
     paster --plugin=ckanext-harvest harvester initdb --config=mysite.ini
 
-The extension needs a user with sysadmin privileges to perform the
-harvesting jobs. You can create such a user running this command::
-
-    paster --plugin=ckan sysadmin add harvest
-
-After installation, the harvest interface should be available under /harvest
-if you're logged in with sysadmin permissions, eg.
+After installation, the harvest source listing should be available under /harvest, eg:
 
 	http://localhost:5000/harvest
 
@@ -55,7 +75,7 @@ The following operations can be run from the command line using the
       harvester initdb
         - Creates the necessary tables in the database
 
-      harvester source {url} {type} [{active}] [{user-id}] [{publisher-id}]
+      harvester source {url} {type} [{config}] [{active}] [{user-id}] [{publisher-id}] [{frequency}]
         - create new harvest source
 
       harvester rmsource {id}
@@ -80,15 +100,25 @@ The following operations can be run from the command line using the
       harvester fetch_consumer
         - starts the consumer for the fetching queue
 
-      harvester import [{source-id}]
-        - perform the import stage with the last fetched objects, optionally
-          belonging to a certain source.
-          Please note that no objects will be fetched from the remote server.
-          It will only affect the last fetched objects already present in the
-          database.
+      harvester purge_queues
+        - removes all jobs from fetch and gather queue
+
+      harvester [-j] [--segments={segments}] import [{source-id}]
+        - perform the import stage with the last fetched objects, optionally belonging to a certain source.
+          Please note that no objects will be fetched from the remote server. It will only affect
+          the last fetched objects already present in the database.
+
+          If the -j flag is provided, the objects are not joined to existing datasets. This may be useful
+          when importing objects for the first time.
+
+          The --segments flag allows to define a string containing hex digits that represent which of
+          the 16 harvest object segments to import. e.g. 15af will run segments 1,5,a,f
 
       harvester job-all
         - create new harvest jobs for all active sources.
+
+      harvester reindex
+        - reindexes the harvest source datasets
 
 The commands should be run with the pyenv activated and refer to your sites configuration file (mysite.ini in this example)::
 
@@ -97,8 +127,15 @@ The commands should be run with the pyenv activated and refer to your sites conf
 Authorization
 =============
 
-TODO
+Starting from CKAN 2.0, harvest sources behave exactly the same as datasets
+(they are actually internally implemented as a dataset type). That means that
+can be searched and faceted, and that the same authorization rules can be
+applied to them. The default authorization settings are based on organizations
+(equivalent to the `publisher profile` found in old versions).
 
+Have a look at the `Authorization <http://docs.ckan.org/en/latest/authorization.html>`_ 
+documentation on CKAN core to see how to configure your instance depending on
+your needs.
 
 The CKAN harvester
 ===================
@@ -114,8 +151,8 @@ The CKAN harvesters support a number of configuration options to control their
 behaviour. Those need to be defined as a JSON object in the configuration form
 field. The currently supported configuration options are:
 
-*   api_version: You can force the harvester to use either version '1' or '2' of
-    the CKAN API. Default is '2'.
+*   api_version: You can force the harvester to use either version 1 or 2 of
+    the CKAN API. Default is 2.
 
 *   default_tags: A list of tags that will be added to all harvested datasets.
     Tags don't need to previously exist.
@@ -123,7 +160,7 @@ field. The currently supported configuration options are:
 *   default_groups: A list of groups to which the harvested datasets will be
     added to. The groups must exist. Note that you must use ids or names to
     define the groups according to the API version you defined (names for version
-    '1', ids for version '2').
+    1, ids for version 2).
 
 *   default_extras: A dictionary of key value pairs that will be added to extras
     of the harvested datasets. You can use the following replacement strings,
@@ -157,18 +194,25 @@ field. The currently supported configuration options are:
     Setting this property to true will force the harvester to gather all remote
     packages regardless of the modification date. Default is False.
 
+*   remote_groups: By default, remote groups are ignored. Setting this property
+    enables the harvester to import the remote groups. There are two alternatives.
+    Setting it to 'only_local' will just import groups which name/id is already
+    present in the local CKAN. Setting it to 'create' will make an attempt to
+    create the groups by copying the details from the remote CKAN.
+
 Here is an example of a configuration object (the one that must be entered in
 the configuration field)::
 
     {
-     "api_version":"1",
+     "api_version": 1,
      "default_tags":["new-tag-1","new-tag-2"],
      "default_groups":["my-own-group"],
      "default_extras":{"new_extra":"Test","harvest_url":"{harvest_source_url}/dataset/{dataset_id}"},
      "override_extras": true,
      "user":"harverster-user",
      "api_key":"<REMOTE_API_KEY>",
-     "read_only": true
+     "read_only": true,
+     "remote_groups": "only_local"
     }
 
 
@@ -347,11 +391,12 @@ pending harvesting jobs::
 
       paster --plugin=ckanext-harvest harvester run --config=mysite.ini
 
-Note: If you don't have the `synchronous_search` plugin loaded, you will need
-to update the search index after the harvesting in order for the packages to
-appear in search results::
-
-      paster --plugin=ckan search-index rebuild
+The ``run`` command not only starts any pending harvesting jobs, but also
+flags those that are finished, allowing new jobs to be created on that particular
+source and refreshing the source statistics. That means that you will need to run
+this command before being able to create a new job on a source that was being
+harvested (On a production site you will tipically have a cron job that runs the
+command regularly, see next section).
 
 
 Setting up the harvesters on a production server

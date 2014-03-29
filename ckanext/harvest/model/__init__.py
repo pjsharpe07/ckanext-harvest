@@ -72,12 +72,13 @@ def setup():
                 migrate_v3()
 
             # Check if this instance has harvest source datasets
-            source_id = Session.query(HarvestSource.id).first()
-            if source_id:
-                pkg = Session.query(model.Package).filter(model.Package.id==source_id[0]).first()
-                if not pkg:
-                    log.debug('Creating harvest source datasets from existing sources')
-                    migrate_v3_create_datasets()
+            source_ids = Session.query(HarvestSource.id).filter_by(active=True).all()
+            source_package_ids = Session.query(model.Package.id).filter_by(type=u'harvest', state='active').all()
+            sources_to_migrate = set(source_ids) - set(source_package_ids)
+            if sources_to_migrate:
+                log.debug('Creating harvest source datasets for %i existing sources', len(sources_to_migrate))
+                sources_to_migrate = [s[0] for s in sources_to_migrate]
+                migrate_v3_create_datasets(sources_to_migrate)
 
     else:
         log.debug('Harvest table creation deferred')
@@ -407,7 +408,14 @@ ALTER TABLE harvest_object_error
     Session.commit()
     log.info('Harvest tables migrated to v3')
 
-def migrate_v3_create_datasets():
+class PackageIdHarvestSourceIdMismatch(Exception):
+    """
+    The package created for the harvest source must match the id of the
+    harvest source
+    """
+    pass
+
+def migrate_v3_create_datasets(source_ids=None):
     import pylons
     from paste.registry import Registry
 
@@ -416,11 +424,19 @@ def migrate_v3_create_datasets():
     registry.prepare()
     registry.register(pylons.translator, MockTranslator())
 
-    sources = model.Session.query(HarvestSource).all()
+    sources = []
+    if not source_ids:
+        sources = model.Session.query(HarvestSource).all()
+
+    else:
+        sources = model.Session.query(HarvestSource) \
+                  .filter(HarvestSource.id.in_(source_ids)) \
+                  .all()
 
     if not sources:
         log.debug('No harvest sources to migrate')
         return
+
 
     site_user_name = logic.get_action('get_site_user')({'model': model, 'ignore_auth': True},{})['name']
 
@@ -461,19 +477,19 @@ def migrate_v3_create_datasets():
             'title': source.title if source.title else source.url,
             'notes': source.description,
             'url': source.url,
-            'type': 'harvest_source',
+            'type': 'harvest',
             'source_type': source.type,
             'config': source.config,
             'frequency': source.frequency,
-            'author_email': '',
-            'license_id': '',
-            'maintainer_email': '',
-            'maintainer': '',
-            'author': ''
             }
         context['message'] = 'Created package for harvest source {0}'.format(source.id)
         try:
-            logic.get_action('package_create')(context, package_dict)
+            new_package_id = logic.get_action('package_create')(context, package_dict)
+            if new_package_id != source.id or not context['return_id_only']:
+                # this check only makes sense if we are sure we are returning
+                # the package id not the package object
+                raise PackageIdHarvestSourceIdMismatch
+
             log.info('Created new package for source {0} ({1})'.format(source.id, source.url))
         except logic.ValidationError,e:
             log.error('Validation Error: %s' % str(e.error_summary))
