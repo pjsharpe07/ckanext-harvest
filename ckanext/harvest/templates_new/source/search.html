@@ -43,6 +43,9 @@
             {{ _('All harvest sources') }}
           {%- endif -%}
         </strong>
+        <div id="sort_option">
+
+        </div>
         <div class="filter-list">
           {% for field in c.fields_grouped %}
             <span class="facet">{{ c.facet_titles.get(field) }}:</span>
