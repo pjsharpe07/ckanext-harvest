@@ -147,7 +147,7 @@ def harvest_source_show_status(context, data_dict):
       if(job_error != ''):
         msg += 'Job Errors\n' + job_error + '\n\n'
       
-      msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us here< www.data.gov/contact> for any questions or feedback.'     
+      msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us here <www.data.gov/contact> for any questions or feedback.'
 
       #get recipients
       sql = '''select group_id from member where table_id = :source_id;'''
