@@ -16,6 +16,8 @@ from ckanext.harvest.model import (HarvestSource, HarvestJob, HarvestObject)
 from ckanext.harvest.logic.dictization import (harvest_source_dictize,
                                                harvest_job_dictize,
                                                harvest_object_dictize)
+                                               
+import ckan.lib.mailer as mailer                                              
 
 log = logging.getLogger(__name__)
 
