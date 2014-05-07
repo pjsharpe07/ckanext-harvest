@@ -27,7 +27,9 @@ from ckanext.harvest.logic import HarvestJobExists
 from ckanext.harvest.logic.schema import harvest_source_show_package_schema
 
 from ckanext.harvest.logic.action.get import harvest_source_show, harvest_job_list, _get_sources_for_user
+import ckan.lib.mailer as mailer 
 
+from ckanext.harvest.logic.dictization import harvest_job_dictize
 
 log = logging.getLogger(__name__)
 
@@ -278,6 +280,7 @@ def harvest_jobs_run(context,data_dict):
     log.info('Harvest job run: %r', data_dict)
     check_access('harvest_jobs_run',context,data_dict)
 
+    model = context['model']
     session = context['session']
 
     source_id = data_dict.get('source_id',None)
@@ -290,16 +293,17 @@ def harvest_jobs_run(context,data_dict):
     # Flag finished jobs as such
     jobs = harvest_job_list(context,{'source_id':source_id,'status':u'Running'})
     if len(jobs):
-        package_index = PackageSearchIndex()
-        for job in jobs:
+        package_index = PackageSearchIndex()        
+        for job in jobs:            
             if job['gather_finished']:
+                log.info("in if1")
                 objects = session.query(HarvestObject.id) \
                           .filter(HarvestObject.harvest_job_id==job['id']) \
                           .filter(and_((HarvestObject.state!=u'COMPLETE'),
                                        (HarvestObject.state!=u'ERROR'))) \
                           .order_by(HarvestObject.import_finished.desc())
 
-                if objects.count() == 0:
+                if objects.count() == 0:                    
                     job_obj = HarvestJob.get(job['id'])
                     job_obj.status = u'Finished'
 
@@ -308,9 +312,85 @@ def harvest_jobs_run(context,data_dict):
                           .filter(HarvestObject.import_finished!=None) \
                           .order_by(HarvestObject.import_finished.desc()) \
                           .first()
-                    if last_object:
+                    if last_object:                        
                         job_obj.finished = last_object.import_finished
+                    else:
+                        job_obj.finished = datetime.datetime.utcnow()
                     job_obj.save()
+                    
+                       
+                    #email body
+                    msg = 'Here is the summary of latest harvest job set-up for your organization in Data.gov\n\n'
+                    
+                    sql = '''select g.title as org, s.title as job_title from member m
+                             join public.group g on m.group_id = g.id
+                             join harvest_source s on s.id = m.table_id
+                             where table_id = :source_id;'''
+                             
+                    q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
+                    
+                    for row in q:
+                        msg += 'Organization: ' + str(row['org']) + '\n\n'
+                        msg += 'Harvest Job Title: ' + str(row['job_title']) + '\n\n'
+    
+                    msg += 'Date of Harvest: ' + str(job_obj.created) + '\n\n'
+                    
+                    out = {                            
+                        'last_job': None,                        
+                    }
+                    
+                    out['last_job'] = harvest_job_dictize(job_obj, context)
+                    
+                    msg += 'Records in Error: ' + str(out['last_job']['stats'].get('errored',0)) + '\n' 
+                    msg += 'Records Added: ' + str(out['last_job']['stats'].get('added',0)) + '\n' 
+                    msg += 'Records Updated: ' + str(out['last_job']['stats'].get('updated',0)) + '\n' 
+                    msg += 'Records Deleted: ' + str(out['last_job']['stats'].get('deleted',0)) + '\n\n'
+       
+                    obj_error = ''
+                    job_error = ''
+                    
+                    sql = '''select hoe.message as msg from harvest_object ho 
+                            inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
+                            where ho.harvest_job_id = :job_id;'''
+                       
+                    q = model.Session.execute(sql, {'job_id' : job_obj.id})
+                    for row in q:	
+                       obj_error += row['msg'] + '\n'     
+                  
+                    sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''  
+                    q = model.Session.execute(sql, {'job_id' : job_obj.id})
+                    for row in q:	
+                      job_error += row['message'] + '\n'
+                  
+                    if(obj_error != '' or job_error != ''):
+                      msg += 'Error Summary\n\n'
+                    
+                    if(obj_error != ''):
+                      msg += 'Document Error\n' + obj_error + '\n\n'
+                    
+                    if(job_error != ''):
+                      msg += 'Job Errors\n' + job_error + '\n\n'
+                  
+                    msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
+
+                    #get recipients
+                    sql = '''select group_id from member where table_id = :source_id;'''
+                    q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
+                  
+                    for row in q:	
+                        sql = '''select email, name from public.user u
+                                join member m on m.table_id = u.id
+                                where capacity = 'admin' and group_id = :group_id;'''
+                        q1 = model.Session.execute(sql, {'group_id' : row['group_id']})         
+                    
+                        for row1 in q1:        
+                            email = {'recipient_name': str(row1['name']),
+                                     'recipient_email': str(row1['email']),
+                                     'subject': 'Data.gov Latest Harvest Job Report', 
+                                     'body': msg}
+         
+                            mailer.mail_recipient(**email)
+ 
                     # Reindex the harvest source dataset so it has the latest
                     # status
                     if 'extras_as_string'in context:
@@ -321,7 +401,7 @@ def harvest_jobs_run(context,data_dict):
 
                     if package_dict:
                         package_index.index_package(package_dict)
-
+            
     # resubmit old redis tasks
     resubmit_jobs()
 
@@ -330,13 +410,14 @@ def harvest_jobs_run(context,data_dict):
     if len(jobs) == 0:
         log.info('No new harvest jobs.')
         raise Exception('There are no new harvesting jobs')
-
+    
     # Send each job to the gather queue
     publisher = get_gather_publisher()
     sent_jobs = []
     for job in jobs:
-        context['detailed'] = False
+        context['detailed'] = False     
         source = harvest_source_show(context,{'id':job['source_id']})
+        #source = harvest_source_show(context,{'id':source_id})
         if source['active']:
             job_obj = HarvestJob.get(job['id'])
             job_obj.status = job['status'] = u'Running'
