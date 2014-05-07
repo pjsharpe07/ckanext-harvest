@@ -295,8 +295,7 @@ def harvest_jobs_run(context,data_dict):
     if len(jobs):
         package_index = PackageSearchIndex()        
         for job in jobs:            
-            if job['gather_finished']:
-                log.info("in if1")
+            if job['gather_finished']:                
                 objects = session.query(HarvestObject.id) \
                           .filter(HarvestObject.harvest_job_id==job['id']) \
                           .filter(and_((HarvestObject.state!=u'COMPLETE'),
@@ -316,8 +315,7 @@ def harvest_jobs_run(context,data_dict):
                         job_obj.finished = last_object.import_finished
                     else:
                         job_obj.finished = datetime.datetime.utcnow()
-                    job_obj.save()
-                    
+                    job_obj.save()                   
                        
                     #email body
                     msg = 'Here is the summary of latest harvest job set-up for your organization in Data.gov\n\n'
