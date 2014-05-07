@@ -15,7 +15,7 @@ from ckanext.harvest import model as harvest_model
 from ckanext.harvest.model import (HarvestSource, HarvestJob, HarvestObject)
 from ckanext.harvest.logic.dictization import (harvest_source_dictize,
                                                harvest_job_dictize,
-                                               harvest_object_dictize)                                                                                    
+                                               harvest_object_dictize)
 
 log = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ def harvest_source_show_status(context, data_dict):
             .filter(model.Package.private==False) \
             .group_by(model.Package.id)
     out['total_datasets'] = packages.count()
-               
+
     return out
 
 @side_effect_free
