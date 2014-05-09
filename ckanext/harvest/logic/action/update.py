@@ -426,7 +426,10 @@ def harvest_jobs_run(context,data_dict):
                                      'subject': 'Data.gov Latest Harvest Job Report', 
                                      'body': msg}
          
-                            mailer.mail_recipient(**email)
+                            try:
+                                mailer.mail_recipient(**email)
+                            except Exception:
+                                pass
  
                     # Reindex the harvest source dataset so it has the latest
                     # status
