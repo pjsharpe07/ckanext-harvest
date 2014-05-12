@@ -160,7 +160,7 @@ class RedisConsumer(object):
             yield (FakeMethod(body), self, body)
     def persistance_key(self, message):
         message = json.loads(message)
-        return self.routing_key + ':' + message[self.routing_key]
+        return self.routing_key + ':' + str(message[self.routing_key])
     def basic_ack(self, message):
         self.redis.delete(self.persistance_key(message))
     def queue_purge(self, queue):
