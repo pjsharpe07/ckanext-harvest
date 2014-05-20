@@ -446,7 +446,6 @@ def harvest_jobs_run(context,data_dict):
     jobs = harvest_job_list(context,{'source_id':source_id,'status':u'New'})
     if len(jobs) == 0:
         log.info('No new harvest jobs.')
-        raise Exception('There are no new harvesting jobs')
     
     # Send each job to the gather queue
     publisher = get_gather_publisher()
