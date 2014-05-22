@@ -417,7 +417,7 @@ def harvest_jobs_run(context,data_dict):
                     for row in q:	
                         sql = '''select email, name from public.user u
                                 join member m on m.table_id = u.id
-                                where capacity = 'admin' and group_id = :group_id;'''
+                                where capacity = 'admin' and state = 'active' and group_id = :group_id;'''
                         q1 = model.Session.execute(sql, {'group_id' : row['group_id']})         
                     
                         for row1 in q1:        
