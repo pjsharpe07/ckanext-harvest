@@ -42,6 +42,11 @@ class OrganizationController(GroupController):
         except p.toolkit.NotAuthorized:
             abort(401, p.toolkit._('Unauthorized to read group %s') % id)
 
+        try:
+            self._check_access('group_update', context)
+        except p.toolkit.NotAuthorized, e:
+            abort(401, p.toolkit._('User %r not authorized to edit %s') % (c.user, id))
+
         self._read(id, limit, dataset_type=DATASET_TYPE_NAME)
         return render('source/org_source_list.html')
 
