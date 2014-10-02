@@ -242,7 +242,9 @@ def harvest_job_list(context,data_dict):
 
     query = query.order_by(HarvestJob.created.desc())
 
-    jobs = query.slice(0,10)
+    #jobs = query.slice(0,10)
+    
+    jobs = query.all()
 
     context['return_error_summary'] = False
     return [harvest_job_dictize(job, context) for job in jobs]
