@@ -12,7 +12,7 @@
   {% if c.jobs|length == 0 %}
     <p class="empty">{{ _('No jobs yet for this source') }}</p>
   {% else %}
-    <div>Only last 10 results are listed.<br><br></div>
+    <!--<div>Only last 10 results are listed.<br><br></div>-->
     <ul class="dataset-list unstyled">
       {% for job in c.jobs %}
         <li class="dataset-item">
