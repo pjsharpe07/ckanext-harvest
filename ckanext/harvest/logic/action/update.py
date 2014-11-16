@@ -2,6 +2,7 @@ import hashlib
 
 import logging
 import datetime
+import json
 
 from pylons import config
 from paste.deploy.converters import asbool
@@ -316,7 +317,25 @@ def harvest_jobs_run(context,data_dict):
                     else:
                         job_obj.finished = datetime.datetime.utcnow()
                     job_obj.save()                   
-                       
+
+                    # recreate job for datajson collection or the like.
+                    source = job_obj.source
+                    source_config = json.loads(source.config or '{}')
+                    datajson_collection = source_config.get(
+                        'datajson_collection')
+                    if datajson_collection == 'parents_run':
+                        new_job = HarvestJob()
+                        new_job.source = source
+                        new_job.save()
+                        source_config['datajson_collection'] = 'children_run'
+                        source.config = json.dumps(source_config)
+                        source.save()
+                    elif datajson_collection:
+                        # reset the key if 'children_run', or anything.
+                        source_config.pop("datajson_collection", None)
+                        source.config = json.dumps(source_config)
+                        source.save()
+
                     #email body
                     msg = 'Here is the summary of latest harvest job set-up for your organization in Data.gov\n\n'
                     
