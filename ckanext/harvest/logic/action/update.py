@@ -389,7 +389,7 @@ def harvest_jobs_run(context,data_dict):
                         msg += 'Organization: ' + str(row['org']) + '\n\n'
                         msg += 'Harvest Job Title: ' + str(row['job_title']) + '\n\n'
     
-                    msg += 'Date of Harvest: ' + str(job_obj.created) + '\n\n'
+                    msg += 'Date of Harvest: ' + str(job_obj.created) + ' GMT\n\n'
                     
                     out = {                            
                         'last_job': None,                        
