@@ -337,9 +337,18 @@ def harvest_jobs_run(context,data_dict):
                         source.save()
 
                     if config.get('ckanext.harvest.email') == 'on':
-
                       #email body
-                      msg = 'Here is the summary of latest harvest job set-up for your organization in Data.gov\n\n'
+
+                      sql = '''select name from package where id = :source_id;'''
+
+                      q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
+
+                      for row in q:
+                        harvest_name = str(row['name'])
+
+                      job_url = config.get('ckan.site_url') + '/harvest/' + harvest_name + '/job/' + job_obj.id
+
+                      msg = 'Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
                     
                       sql = '''select g.title as org, s.title as job_title from member m
                                join public.group g on m.group_id = g.id
@@ -352,8 +361,8 @@ def harvest_jobs_run(context,data_dict):
                           msg += 'Organization: ' + str(row['org']) + '\n\n'
                           msg += 'Harvest Job Title: ' + str(row['job_title']) + '\n\n'
     
-                      msg += 'Date of Harvest: ' + str(job_obj.created) + '\n\n'
-                    
+                      msg += 'Date of Harvest: ' + str(job_obj.created) + ' GMT\n\n'
+
                       out = {
                           'last_job': None,
                       }
