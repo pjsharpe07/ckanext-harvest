@@ -50,15 +50,30 @@ Example:
   </tr>
   <tr>
     <th>{{ _('Created') }}</th>
-    <td>{{ h.render_datetime(job.created, with_hours=True) }}  {{ _('GMT') }}</td>
+    <td>
+        {{ h.render_datetime(job.created, with_hours=True) }}
+        {% if  h.render_datetime(job.created, with_hours=True) %}
+          {{ _('GMT') }}
+        {% endif %}
+    </td>
   </tr>
   <tr>
     <th>{{ _('Started') }}</th>
-    <td>{{ h.render_datetime(job.gather_started, with_hours=True) }}  {{ _('GMT') }}</td>
+    <td>
+        {{ h.render_datetime(job.gather_started, with_hours=True) }}
+        {% if  h.render_datetime(job.gather_started, with_hours=True) %}
+          {{ _('GMT') }}
+        {% endif %}
+    </td>
   </tr>
   <tr>
     <th>{{ _('Finished') }}</th>
-    <td>{{ h.render_datetime(job.finished, with_hours=True) }}  {{ _('GMT') }}</td>
+    <td>
+        {{ h.render_datetime(job.finished, with_hours=True) }}
+        {% if  h.render_datetime(job.finished, with_hours=True) %}
+          {{ _('GMT') }}
+        {% endif %}
+    </td>
   </tr>
   <tr>
     <th>{{ _('Status') }}</th>
