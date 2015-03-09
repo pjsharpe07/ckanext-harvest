@@ -27,8 +27,14 @@
             </h3>
             <p>
               {{ _('Started:') }} {{ h.render_datetime(job.gather_started, with_hours=True) or _('Not yet') }}
+              {% if  h.render_datetime(job.gather_started, with_hours=True) %}
+                {{ _('GMT') }}
+              {% endif %}
               &mdash;
               {{ _('Finished:') }} {{ h.render_datetime(job.finished, with_hours=True) or _('Not yet') }}
+              {% if  h.render_datetime(job.finished, with_hours=True) %}
+                {{ _('GMT') }}
+              {% endif %}
             </p>
           </div>
           {% if job.status == 'Finished' %}
