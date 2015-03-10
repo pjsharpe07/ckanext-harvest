@@ -336,7 +336,7 @@ def harvest_jobs_run(context,data_dict):
                         source.config = json.dumps(source_config)
                         source.save()
 
-                    if config.get('ckanext.harvest.email') == 'on':
+                    if config.get('ckanext.harvest.email', 'on') == 'on':
                       #email body
 
                       sql = '''select name from package where id = :source_id;'''
