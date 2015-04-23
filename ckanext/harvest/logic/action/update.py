@@ -376,96 +376,130 @@ def harvest_jobs_run(context,data_dict):
                         source.save()
 
                     if config.get('ckanext.harvest.email', 'on') == 'on':
-                      #email body
-
+                        #email body
+                        
                         sql = '''select name from package where id = :source_id;'''
-    
+                        
                         q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
-    
+                        
                         for row in q:
-                          harvest_name = str(row['name'])
-    
+                        harvest_name = str(row['name'])
+                        
                         job_url = config.get('ckan.site_url') + '/harvest/' + harvest_name + '/job/' + job_obj.id
-    
-                        msg = 'Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
                         
-                          sql = '''select g.title as org, s.title as job_title from member m
-                                   join public.group g on m.group_id = g.id
-                                   join harvest_source s on s.id = m.table_id
-                                   where table_id = :source_id;'''
-                                 
-                          q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
+                        msg = 'Local Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
                         
-                          for row in q:
-                              msg += 'Organization: ' + str(row['org']) + '\n\n'
-                              msg += 'Harvest Job Title: ' + str(row['job_title']) + '\n\n'
-        
+                        sql = '''select g.title as org, s.title as job_title from member m
+                               join public.group g on m.group_id = g.id
+                               join harvest_source s on s.id = m.table_id
+                               where table_id = :source_id;'''
+                             
+                        q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
+                        
+                        for row in q:
+                          msg += 'Organization: ' + str(row['org']) + '\n\n'
+                          msg += 'Harvest Job Title: ' + str(row['job_title']) + '\n\n'
+                        
                         msg += 'Date of Harvest: ' + str(job_obj.created) + ' GMT\n\n'
                         
-                          out = {
-                              'last_job': None,
-                          }
+                        out = {
+                          'last_job': None,
+                        }
                         
-                          out['last_job'] = harvest_job_dictize(job_obj, context)
+                        out['last_job'] = harvest_job_dictize(job_obj, context)
                         
-                          msg += 'Records in Error: ' + str(out['last_job']['stats'].get('errored',0)) + '\n'
-                          msg += 'Records Added: ' + str(out['last_job']['stats'].get('added',0)) + '\n'
-                          msg += 'Records Updated: ' + str(out['last_job']['stats'].get('updated',0)) + '\n'
-                          msg += 'Records Deleted: ' + str(out['last_job']['stats'].get('deleted',0)) + '\n\n'
-           
-                          obj_error = ''
-                          job_error = ''
+                        msg += 'Records in Error: ' + str(out['last_job']['stats'].get('errored',0)) + '\n'
+                        msg += 'Records Added: ' + str(out['last_job']['stats'].get('added',0)) + '\n'
+                        msg += 'Records Updated: ' + str(out['last_job']['stats'].get('updated',0)) + '\n'
+                        msg += 'Records Deleted: ' + str(out['last_job']['stats'].get('deleted',0)) + '\n\n'
                         
-                          sql = '''select hoe.message as msg from harvest_object ho
-                                  inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
-                                  where ho.harvest_job_id = :job_id;'''
-                           
-                          q = model.Session.execute(sql, {'job_id' : job_obj.id})
-                          for row in q:
-                             obj_error += row['msg'] + '\n'
-                      
-                          sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
-                          q = model.Session.execute(sql, {'job_id' : job_obj.id})
-                          for row in q:
-                            job_error += row['message'] + '\n'
-                      
-                          if(obj_error != '' or job_error != ''):
+                        obj_error = ''
+                        job_error = ''
+                        all_updates = ''
+                        
+                        sql = '''select hoe.message as msg from harvest_object ho
+                              inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
+                              where ho.harvest_job_id = :job_id;'''
+                        q = model.Session.execute(sql, {'job_id' : job_obj.id})
+                        for row in q:
+                            obj_error += row['msg'] + '\n'
+                        
+                        #get all packages added and updated by harvest job
+                        sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
+                               from harvest_object ho
+                               inner join package on package.id = ho.package_id
+                               where ho.harvest_job_id = :job_id and (ho.report_status = 'added' or ho.report_status = 'updated')
+                               order by ho.report_status ASC;'''
+                        
+                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            if row['ho_package_status'] == 'added':
+                                all_updates += row['ho_package_status'].upper() + '    , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                            else:
+                                all_updates += row['ho_package_status'].upper() + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                        
+                        
+                        #get all packages deleted by harvest job
+                        sql = '''SELECT ho.harvest_job_id, ho.harvest_source_id, ho.package_id, ho.report_status, package.title, ho.guid
+                               FROM harvest_object ho
+                               inner join package on package.id = ho.guid
+                               where harvest_job_id = :job_id and ho.report_status = 'deleted'
+                               order by report_status ASC;'''
+                        
+                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            all_updates += row['ho_package_status'].upper() + ', ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                        
+                        if(all_updates != ''):
+                            msg += 'Summary\n\n' + all_updates + '\n\n'
+                        
+                        sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
+                        q = model.Session.execute(sql, {'job_id' : job_obj.id})
+                        for row in q:
+                        job_error += row['message'] + '\n'
+                        
+                        if(obj_error != '' or job_error != ''):
                             msg += 'Error Summary\n\n'
                         
-                          if(obj_error != ''):
+                        if(obj_error != ''):
                             msg += 'Document Error\n' + obj_error + '\n\n'
                         
-                          if(job_error != ''):
+                        if(job_error != ''):
                             msg += 'Job Errors\n' + job_error + '\n\n'
-                      
-                          msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
-    
-                          #get recipients
-                          sql = '''select group_id from member where table_id = :source_id;'''
-                          q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
-                      
-                          for row in q:
-                              sql = '''select email, name from public.user u
-                                      join member m on m.table_id = u.id
-                                      where capacity = 'admin' and state = 'active' and group_id = :group_id;'''
-    
-                              q1 = model.Session.execute(sql, {'group_id' : row['group_id']})
                         
-                              for row1 in q1:
-                                  email = {'recipient_name': str(row1['name']),
-                                           'recipient_email': str(row1['email']),
-                                           'subject': 'Data.gov Latest Harvest Job Report',
-                                           'body': msg}
-             
-                                  try:
-                                      mailer.mail_recipient(**email)
-                                  except Exception:
-                                      pass
+                        msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
+                        
+                        #get recipients
+                        sql = '''select group_id from member where table_id = :source_id;'''
+                        q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
+                        
+                        for row in q:
+                            sql = '''select email, name from public.user u
+                                  join member m on m.table_id = u.id
+                                  where capacity = 'admin' and state = 'active' and group_id = :group_id;'''
+                        
+                            q1 = model.Session.execute(sql, {'group_id' : row['group_id']})
+                            
+                            for row1 in q1:
+                              email = {'recipient_name': str(row1['name']),
+                                       'recipient_email': str(row1['email']),
+                                       'subject': 'Local Data.gov Latest Harvest Job Report',
+                                       'body': msg}
+                            
+                              try:
+                                  mailer.mail_recipient(**email)
+                              except Exception:
+                                  pass
  
                     # Reindex the harvest source dataset so it has the latest
                     # status
-                    get_action('harvest_source_reindex')(context,
-                        {'id': job_obj.source.id})
+                    # get_action('harvest_source_reindex')(context,
+                    #     {'id': job_obj.source.id})
+                    if 'extras_as_string'in context:
+                        del context['extras_as_string']
+                    context.update({'validate': False, 'ignore_auth': True})
+                    package_dict = logic.get_action('package_show')(context,
+                            {'id': job_obj.source.id})
 
                     if package_dict:
                         package_index.index_package(package_dict)
