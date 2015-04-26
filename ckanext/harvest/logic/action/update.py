@@ -348,7 +348,7 @@ def harvest_jobs_run(context,data_dict):
 
                       job_url = config.get('ckan.site_url') + '/harvest/' + harvest_name + '/job/' + job_obj.id
 
-                      msg = 'Local Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
+                      msg = 'Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
                     
                       sql = '''select g.title as org, s.title as job_title from member m
                                join public.group g on m.group_id = g.id
@@ -378,13 +378,14 @@ def harvest_jobs_run(context,data_dict):
                       job_error = ''
                       all_updates = ''
 
-                      sql = '''select hoe.message as msg, ho.package_id as package_id from harvest_object ho
+                      sql = '''select hoe.message as msg from harvest_object ho
                               inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
                               where ho.harvest_job_id = :job_id;'''
+                       
                       q = model.Session.execute(sql, {'job_id' : job_obj.id})
                       for row in q:
                          obj_error += row['msg'] + '\n'
-
+                       
                       #get all packages added and updated by harvest job
                       sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
                                from harvest_object ho
@@ -395,25 +396,25 @@ def harvest_jobs_run(context,data_dict):
                       q = model.Session.execute(sql, {'job_id': job_obj.id})
                       for row in q:
                          if row['ho_package_status'] == 'added':
-                            all_updates += row['ho_package_status'].upper() + '    , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                            all_updates += row['ho_package_status'].upper() + '   , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
                          else:
                             all_updates += row['ho_package_status'].upper() + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
 
 
                       #get all packages deleted by harvest job
-                      sql = '''SELECT ho.harvest_job_id, ho.harvest_source_id, ho.package_id, ho.report_status, package.title, ho.guid
+                      sql = '''SELECT ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
                                FROM harvest_object ho
                                inner join package on package.id = ho.guid
-                               where harvest_job_id = :job_id and ho.report_status = 'deleted'
-                               order by report_status ASC;'''
+                               where harvest_job_id = :job_id and ho.report_status = 'deleted';'''
 
                       q = model.Session.execute(sql, {'job_id': job_obj.id})
                       for row in q:
                          all_updates += row['ho_package_status'].upper() + ', ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
 
                       if(all_updates != ''):
-                        msg += 'Summary\n\n' + all_updates + '\n\n'
+                        msg += 'Summary\n\n' + all_updates + '\n\n'                      
 
+                      log.info('message in email:',all_updates)
                       sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
                       q = model.Session.execute(sql, {'job_id' : job_obj.id})
                       for row in q:
@@ -444,7 +445,7 @@ def harvest_jobs_run(context,data_dict):
                           for row1 in q1:
                               email = {'recipient_name': str(row1['name']),
                                        'recipient_email': str(row1['email']),
-                                       'subject': 'Local Data.gov Latest Harvest Job Report',
+                                       'subject': 'Data.gov Latest Harvest Job Report',
                                        'body': msg}
          
                               try:
