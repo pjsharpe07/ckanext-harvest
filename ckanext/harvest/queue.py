@@ -334,6 +334,8 @@ def fetch_and_import_stages(harvester, obj):
     if obj.state == 'ERROR':
         obj.report_status = 'errored'
     elif obj.current == False:
+        #keep package id for deleted datasets.
+        obj.package_id = obj.package_id
         obj.report_status = 'deleted'
     elif len(model.Session.query(HarvestObject)
            .filter_by(package_id = obj.package_id)
