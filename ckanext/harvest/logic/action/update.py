@@ -390,7 +390,7 @@ def harvest_jobs_run(context,data_dict):
                       sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
                                from harvest_object ho
                                inner join package on package.id = ho.package_id
-                               where ho.harvest_job_id = :job_id and (ho.report_status = 'added' or ho.report_status = 'updated')
+                               where ho.harvest_job_id = :job_id
                                order by ho.report_status ASC;'''
 
                       q = model.Session.execute(sql, {'job_id': job_obj.id})
@@ -400,16 +400,6 @@ def harvest_jobs_run(context,data_dict):
                          else:
                             all_updates += row['ho_package_status'].upper() + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
 
-
-                      #get all packages deleted by harvest job
-                      sql = '''SELECT ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
-                               FROM harvest_object ho
-                               inner join package on package.id = ho.guid
-                               where harvest_job_id = :job_id and ho.report_status = 'deleted';'''
-
-                      q = model.Session.execute(sql, {'job_id': job_obj.id})
-                      for row in q:
-                         all_updates += row['ho_package_status'].upper() + ', ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
 
                       if(all_updates != ''):
                         msg += 'Summary\n\n' + all_updates + '\n\n'                      
