@@ -41,6 +41,23 @@ def harvest_job_dictize(job, context):
         for status, count in stats:
             out['stats'][status] = count
 
+        #get all packages added and updated by harvest job
+        all_updates = []
+        sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
+                 from harvest_object ho
+                 inner join package on package.id = ho.package_id
+                 where ho.harvest_job_id = :job_id
+                 order by ho.report_status ASC;'''
+
+        q = model.Session.execute(sql, {'job_id': job.id})
+
+        for row in q:
+          all_updates.append(row['ho_package_status'].upper() + ' , ' + row['ho_package_id'] + ', ' + row['package_title'])
+
+        if(all_updates != ''):
+          out['summary'] = all_updates
+
+
         # We actually want to check which objects had errors, because they
         # could have been added/updated anyway (eg bbox errors)
         count = model.Session.query(func.distinct(HarvestObjectError.harvest_object_id)) \
