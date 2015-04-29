@@ -406,15 +406,36 @@ def harvest_jobs_run(context,data_dict):
                       q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
                   
                       for row in q:
+                          all_emails = {}
+
+                          # emails from org admin
                           sql = '''select email, name from public.user u
                                   join member m on m.table_id = u.id
                                   where capacity = 'admin' and state = 'active' and group_id = :group_id;'''
-
                           q1 = model.Session.execute(sql, {'group_id' : row['group_id']})
-                    
                           for row1 in q1:
-                              email = {'recipient_name': str(row1['name']),
-                                       'recipient_email': str(row1['email']),
+                              _email = str(row1['email']).lower()
+                              _name = str(row1['name'])
+                              if _email:
+                                  all_emails[_email] = _name
+
+                          # emails from org email_list
+                          sql = '''SELECT value FROM group_extra
+                                   WHERE state = 'active' AND key = 'email_list'
+                                   AND group_id = :group_id'''
+                          result = model.Session.execute(sql,
+                                {'group_id':row['group_id']}).fetchone()
+
+                          if result:
+                            org_emails = result[0].strip()
+                            if org_emails:
+                              org_email_list = org_emails.replace(';',' ').replace(',',' ').split()
+                              for org_email in org_email_list:
+                                all_emails[org_email.lower()] = org_email.lower()
+
+                          for _email, _name in all_emails.iteritems():
+                              email = {'recipient_name': _email,
+                                       'recipient_email': _name,
                                        'subject': 'Data.gov Latest Harvest Job Report',
                                        'body': msg}
          
