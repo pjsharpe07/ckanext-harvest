@@ -416,7 +416,7 @@ def harvest_jobs_run(context, data_dict):
                         q = model.Session.execute(sql, {'job_id' : job_obj.id})
                         for row in q:
                             obj_error += row['msg'] + '\n'
-
+                        
                         #get all packages added and updated by harvest job
                         sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
                                 from harvest_object ho
@@ -426,12 +426,9 @@ def harvest_jobs_run(context, data_dict):
                         
                         q = model.Session.execute(sql, {'job_id': job_obj.id})
                         for row in q:
-                            if row['ho_package_status'] == 'added':
-                                all_updates += row['ho_package_status'] + '   , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
-                            else:
+                            if row['ho_package_status'] is not None and row['ho_package_id'] is not None and row['package_title'] is not None:
                                 all_updates += row['ho_package_status'] + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
-                        
-                        
+
                         if(all_updates != ''):
                             msg += 'Summary\n\n' + all_updates + '\n\n'                      
                         
