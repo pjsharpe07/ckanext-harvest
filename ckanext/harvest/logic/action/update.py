@@ -386,11 +386,11 @@ def harvest_jobs_run(context,data_dict):
                       for row in q:
                          obj_error += row['msg'] + '\n'
                        
-                      #get all packages added and updated by harvest job
+                      #get all packages added updated and deleted by harvest job
                       sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
                                from harvest_object ho
                                inner join package on package.id = ho.package_id
-                               where ho.harvest_job_id = :job_id
+                               where ho.harvest_job_id = :job_id and (ho.report_status = 'added' or ho.report_status = 'updated' or ho.report_status = 'deleted')
                                order by ho.report_status ASC;'''
 
                       q = model.Session.execute(sql, {'job_id': job_obj.id})
