@@ -396,9 +396,9 @@ def harvest_jobs_run(context,data_dict):
                       q = model.Session.execute(sql, {'job_id': job_obj.id})
                       for row in q:
                          if row['ho_package_status'] == 'added':
-                            all_updates += row['ho_package_status'].upper() + '   , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                            all_updates += row['ho_package_status'] + '   , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
                          else:
-                            all_updates += row['ho_package_status'].upper() + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                            all_updates += row['ho_package_status'] + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
 
 
                       if(all_updates != ''):
