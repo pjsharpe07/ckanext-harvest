@@ -407,17 +407,37 @@ def harvest_jobs_run(context, data_dict):
 
                         obj_error = ''
                         job_error = ''
+                        all_updates = ''
 
                         sql = '''select hoe.message as msg from harvest_object ho
                               inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
                               where ho.harvest_job_id = :job_id;'''
-
-                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        
+                        q = model.Session.execute(sql, {'job_id' : job_obj.id})
                         for row in q:
                             obj_error += row['msg'] + '\n'
 
-                        sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
+                        #get all packages added and updated by harvest job
+                        sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
+                                from harvest_object ho
+                                inner join package on package.id = ho.package_id
+                                where ho.harvest_job_id = :job_id
+                                order by ho.report_status ASC;'''
+                        
                         q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            if row['ho_package_status'] == 'added':
+                                all_updates += row['ho_package_status'] + '   , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                            else:
+                                all_updates += row['ho_package_status'] + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                        
+                        
+                        if(all_updates != ''):
+                            msg += 'Summary\n\n' + all_updates + '\n\n'                      
+                        
+                        log.info('message in email:',all_updates)
+                        sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
+                        q = model.Session.execute(sql, {'job_id' : job_obj.id})
                         for row in q:
                             job_error += row['message'] + '\n'
 
@@ -475,20 +495,20 @@ def harvest_jobs_run(context, data_dict):
                                 except Exception:
                                     pass
 
-        # Reindex the harvest source dataset so it has the latest
-        # status
-        # get_action('harvest_source_reindex')(context,
-        #     {'id': job_obj.source.id})
-        if 'extras_as_string' in context:
-            del context['extras_as_string']
-        context.update({'validate': False, 'ignore_auth': True})
-        package_dict = logic.get_action('package_show')(context,
-                                                        {'id': job_obj.source.id})
+                # Reindex the harvest source dataset so it has the latest
+                # status
+                # get_action('harvest_source_reindex')(context,
+                #     {'id': job_obj.source.id})
+                if 'extras_as_string' in context:
+                    del context['extras_as_string']
+                context.update({'validate': False, 'ignore_auth': True})
+                package_dict = logic.get_action('package_show')(context,
+                                                                {'id': job_obj.source.id})
+        
+                if package_dict:
+                    package_index.index_package(package_dict)
 
-        if package_dict:
-            package_index.index_package(package_dict)
-
-
+                
     # resubmit old redis tasks
     resubmit_jobs()
 

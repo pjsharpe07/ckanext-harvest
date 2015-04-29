@@ -52,7 +52,7 @@ def harvest_job_dictize(job, context):
         q = model.Session.execute(sql, {'job_id': job.id})
 
         for row in q:
-          all_updates.append(row['ho_package_status'].upper() + ' , ' + row['ho_package_id'] + ', ' + row['package_title'])
+          all_updates.append(row['ho_package_status'] + ' , ' + row['ho_package_id'] + ', ' + row['package_title'])
 
         if(all_updates != ''):
           out['summary'] = all_updates
