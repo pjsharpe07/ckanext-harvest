@@ -109,7 +109,7 @@ def harvest_source_clear(context, data_dict):
         ids.append(row[0])
     related_ids = "('" + "','".join(ids) + "')"
 
-    sql = '''begin; 
+    sql = '''begin;
     update package set state = 'to_delete' where id in (select package_id from harvest_object where harvest_source_id = '{harvest_source_id}');'''.format(
         harvest_source_id=harvest_source_id)
 
@@ -123,15 +123,15 @@ def harvest_source_clear(context, data_dict):
     # Backwards-compatibility: support ResourceGroup (pre-CKAN-2.3)
     else:
         sql += '''
-        delete from resource_revision where resource_group_id in 
-        (select id from resource_group where package_id in 
+        delete from resource_revision where resource_group_id in
+        (select id from resource_group where package_id in
         (select id from package where state = 'to_delete'));
-        delete from resource where resource_group_id in 
-        (select id from resource_group where package_id in 
+        delete from resource where resource_group_id in
+        (select id from resource_group where package_id in
         (select id from package where state = 'to_delete'));
-        delete from resource_group_revision where package_id in 
+        delete from resource_group_revision where package_id in
         (select id from package where state = 'to_delete');
-        delete from resource_group where package_id  in 
+        delete from resource_group where package_id  in
         (select id from package where state = 'to_delete');
         '''
     sql += '''
@@ -412,26 +412,26 @@ def harvest_jobs_run(context, data_dict):
                         sql = '''select hoe.message as msg from harvest_object ho
                               inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
                               where ho.harvest_job_id = :job_id;'''
-                        
+
                         q = model.Session.execute(sql, {'job_id' : job_obj.id})
                         for row in q:
                             obj_error += row['msg'] + '\n'
-                        
-                        #get all packages added and updated by harvest job
+
+                        #get all packages added, updated and deleted by harvest job
                         sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
                                 from harvest_object ho
                                 inner join package on package.id = ho.package_id
-                                where ho.harvest_job_id = :job_id
+                                where ho.harvest_job_id = :job_id and (ho.report_status = 'added' or ho.report_status = 'updated' or ho.report_status = 'deleted')
                                 order by ho.report_status ASC;'''
-                        
+
                         q = model.Session.execute(sql, {'job_id': job_obj.id})
                         for row in q:
                             if row['ho_package_status'] is not None and row['ho_package_id'] is not None and row['package_title'] is not None:
                                 all_updates += row['ho_package_status'] + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
 
                         if(all_updates != ''):
-                            msg += 'Summary\n\n' + all_updates + '\n\n'                      
-                        
+                            msg += 'Summary\n\n' + all_updates + '\n\n'
+
                         log.info('message in email:',all_updates)
                         sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
                         q = model.Session.execute(sql, {'job_id' : job_obj.id})
@@ -501,11 +501,11 @@ def harvest_jobs_run(context, data_dict):
                 context.update({'validate': False, 'ignore_auth': True})
                 package_dict = logic.get_action('package_show')(context,
                                                                 {'id': job_obj.source.id})
-        
+
                 if package_dict:
                     package_index.index_package(package_dict)
 
-                
+
     # resubmit old redis tasks
     resubmit_jobs()
 
