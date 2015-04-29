@@ -379,7 +379,7 @@ def harvest_jobs_run(context, data_dict):
 
                         job_url = config.get('ckan.site_url') + '/harvest/' + harvest_name + '/job/' + job_obj.id
 
-                        msg = 'Local Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
+                        msg = 'Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
 
                         sql = '''select g.title as org, s.title as job_title from member m
                                join public.group g on m.group_id = g.id
@@ -407,41 +407,19 @@ def harvest_jobs_run(context, data_dict):
 
                         obj_error = ''
                         job_error = ''
-                        all_updates = ''
 
-                    sql = '''select hoe.message as msg from harvest_object ho
+                        sql = '''select hoe.message as msg from harvest_object ho
                               inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
                               where ho.harvest_job_id = :job_id;'''
 
-                    q = model.Session.execute(sql, {'job_id': job_obj.id})
-                    for row in q:
-                        obj_error += row['msg'] + '\n'
+                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            obj_error += row['msg'] + '\n'
 
-                        # get all packages added and updated by harvest job
-                    sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
-                               from harvest_object ho
-                               inner join package on package.id = ho.package_id
-                               where ho.harvest_job_id = :job_id
-                               order by ho.report_status ASC;'''
-
-                    q = model.Session.execute(sql, {'job_id': job_obj.id})
-                    for row in q:
-                        if row['ho_package_status'] == 'added':
-                            all_updates += row['ho_package_status'].upper() + '   , ' + row['ho_package_id'] + ', ' + \
-                                           row['package_title'] + '\n'
-                        else:
-                            all_updates += row['ho_package_status'].upper() + ' , ' + row['ho_package_id'] + ', ' + row[
-                                'package_title'] + '\n'
-
-
-                    if (all_updates != ''):
-                        msg += 'Summary\n\n' + all_updates + '\n\n'
-
-                    log.info('message in email:', all_updates)
-                    sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
-                    q = model.Session.execute(sql, {'job_id': job_obj.id})
-                    for row in q:
-                        job_error += row['message'] + '\n'
+                        sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
+                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            job_error += row['message'] + '\n'
 
                         if (obj_error != '' or job_error != ''):
                             msg += 'Error Summary\n\n'
@@ -459,15 +437,36 @@ def harvest_jobs_run(context, data_dict):
                         q = model.Session.execute(sql, {'source_id': job_obj.source_id})
 
                         for row in q:
+                            all_emails = {}
+
+                            # emails from org admin
                             sql = '''select email, name from public.user u
                                   join member m on m.table_id = u.id
                                   where capacity = 'admin' and state = 'active' and group_id = :group_id;'''
-
                             q1 = model.Session.execute(sql, {'group_id': row['group_id']})
-
                             for row1 in q1:
-                                email = {'recipient_name': str(row1['name']),
-                                         'recipient_email': str(row1['email']),
+                                _email = str(row1['email']).lower()
+                                _name = str(row1['name'])
+                                if _email:
+                                    all_emails[_email] = _name
+
+                            # emails from org email_list
+                            sql = '''SELECT value FROM group_extra
+                                   WHERE state = 'active' AND key = 'email_list'
+                                   AND group_id = :group_id'''
+                            result = model.Session.execute(sql,
+                                                           {'group_id': row['group_id']}).fetchone()
+
+                            if result:
+                                org_emails = result[0].strip()
+                                if org_emails:
+                                    org_email_list = org_emails.replace(';', ' ').replace(',', ' ').split()
+                                    for org_email in org_email_list:
+                                        all_emails[org_email.lower()] = org_email.lower()
+
+                            for _email, _name in all_emails.iteritems():
+                                email = {'recipient_name': _email,
+                                         'recipient_email': _name,
                                          'subject': 'Data.gov Latest Harvest Job Report',
                                          'body': msg}
 
@@ -476,45 +475,45 @@ def harvest_jobs_run(context, data_dict):
                                 except Exception:
                                     pass
 
-                # Reindex the harvest source dataset so it has the latest
-                # status
-                # get_action('harvest_source_reindex')(context,
-                #     {'id': job_obj.source.id})
-                if 'extras_as_string' in context:
-                    del context['extras_as_string']
-                context.update({'validate': False, 'ignore_auth': True})
-                package_dict = logic.get_action('package_show')(context,
-                                                                {'id': job_obj.source.id})
+        # Reindex the harvest source dataset so it has the latest
+        # status
+        # get_action('harvest_source_reindex')(context,
+        #     {'id': job_obj.source.id})
+        if 'extras_as_string' in context:
+            del context['extras_as_string']
+        context.update({'validate': False, 'ignore_auth': True})
+        package_dict = logic.get_action('package_show')(context,
+                                                        {'id': job_obj.source.id})
 
-                if package_dict:
-                    package_index.index_package(package_dict)
+        if package_dict:
+            package_index.index_package(package_dict)
 
 
-# resubmit old redis tasks
-resubmit_jobs()
+    # resubmit old redis tasks
+    resubmit_jobs()
 
-# Check if there are pending harvest jobs
-jobs = harvest_job_list(context, {'source_id': source_id, 'status': u'New'})
-if len(jobs) == 0:
-    log.info('No new harvest jobs.')
+    # Check if there are pending harvest jobs
+    jobs = harvest_job_list(context, {'source_id': source_id, 'status': u'New'})
+    if len(jobs) == 0:
+        log.info('No new harvest jobs.')
 
-# Send each job to the gather queue
-publisher = get_gather_publisher()
-sent_jobs = []
-for job in jobs:
-    context['detailed'] = False
-    source = harvest_source_show(context, {'id': job['source_id']})
-    # source = harvest_source_show(context,{'id':source_id})
-    if source['active']:
-        job_obj = HarvestJob.get(job['id'])
-        job_obj.status = job['status'] = u'Running'
-        job_obj.save()
-        publisher.send({'harvest_job_id': job['id']})
-        log.info('Sent job %s to the gather queue' % job['id'])
-        sent_jobs.append(job)
+    # Send each job to the gather queue
+    publisher = get_gather_publisher()
+    sent_jobs = []
+    for job in jobs:
+        context['detailed'] = False
+        source = harvest_source_show(context, {'id': job['source_id']})
+        # source = harvest_source_show(context,{'id':source_id})
+        if source['active']:
+            job_obj = HarvestJob.get(job['id'])
+            job_obj.status = job['status'] = u'Running'
+            job_obj.save()
+            publisher.send({'harvest_job_id': job['id']})
+            log.info('Sent job %s to the gather queue' % job['id'])
+            sent_jobs.append(job)
 
-publisher.close()
-return sent_jobs
+    publisher.close()
+    return sent_jobs
 
 
 @logic.side_effect_free
