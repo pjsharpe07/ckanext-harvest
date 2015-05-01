@@ -6,10 +6,12 @@
   <div class="clearfix">
     <h1 class="hide-heading">{{ _('Harvest Sources') }}</h1>
     <div class="primary">
+      {% if h.check_access('harvest_source_create') %}
       <a href="{{ h.url_for('harvest_new', group=c.group_dict.id) }}" class="btn pull-right">
         <i class="icon-plus-sign-alt"></i>
         {{ _('Add Harvest Source') }}
       </a>
+      {% endif %}
       <h3 class="results page-heading">
         {%- if c.page.item_count -%}
           {{ c.page.item_count }} harvest sources{{ _(" found for \"{query}\"").format(query=c.q) if c.q }}
