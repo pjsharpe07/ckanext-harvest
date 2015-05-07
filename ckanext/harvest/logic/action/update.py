@@ -1,5 +1,4 @@
 import hashlib
-
 import logging
 import datetime
 import json
@@ -7,34 +6,27 @@ import json
 from pylons import config
 from paste.deploy.converters import asbool
 from sqlalchemy import and_
-
 from ckan.lib.search.index import PackageSearchIndex
 from ckan.plugins import PluginImplementations
 from ckan.logic import get_action
 from ckanext.harvest.interfaces import IHarvester
 from ckan.lib.search.common import SearchIndexError, make_connection
-
-
 from ckan.model import Package
 from ckan import logic
-
 from ckan.logic import NotFound, check_access
-
 from ckanext.harvest.plugin import DATASET_TYPE_NAME
 from ckanext.harvest.queue import get_gather_publisher, resubmit_jobs
-
 from ckanext.harvest.model import HarvestSource, HarvestJob, HarvestObject
 from ckanext.harvest.logic import HarvestJobExists
 from ckanext.harvest.logic.schema import harvest_source_show_package_schema
-
 from ckanext.harvest.logic.action.get import harvest_source_show, harvest_job_list, _get_sources_for_user
-import ckan.lib.mailer as mailer 
-
+import ckan.lib.mailer as mailer
 from ckanext.harvest.logic.dictization import harvest_job_dictize
 
 log = logging.getLogger(__name__)
 
-def harvest_source_update(context,data_dict):
+
+def harvest_source_update(context, data_dict):
     '''
     Updates an existing harvest source
 
@@ -86,7 +78,8 @@ def harvest_source_update(context,data_dict):
 
     return source
 
-def harvest_source_clear(context,data_dict):
+
+def harvest_source_clear(context, data_dict):
     '''
     Clears all datasets, jobs and objects related to a harvest source, but keeps the source itself.
     This is useful to clean history of long running harvest sources to start again fresh.
@@ -95,9 +88,9 @@ def harvest_source_clear(context,data_dict):
     :type id: string
 
     '''
-    check_access('harvest_source_clear',context,data_dict)
+    check_access('harvest_source_clear', context, data_dict)
 
-    harvest_source_id = data_dict.get('id',None)
+    harvest_source_id = data_dict.get('id', None)
 
     source = HarvestSource.get(harvest_source_id)
     if not source:
@@ -108,7 +101,6 @@ def harvest_source_clear(context,data_dict):
 
     # Clear all datasets from this source from the index
     harvest_source_index_clear(context, data_dict)
-
 
     sql = '''begin; update package set state = 'to_delete' where id in (select package_id from harvest_object where harvest_source_id = '{harvest_source_id}');
     delete from harvest_object_error where harvest_object_id in (select id from harvest_object where harvest_source_id = '{harvest_source_id}');
@@ -129,7 +121,8 @@ def harvest_source_clear(context,data_dict):
     delete from package_extra where package_id in (select id from package where state = 'to_delete');
     delete from member where table_id in (select id from package where state = 'to_delete');
     delete from resource_group where package_id  in (select id from package where state = 'to_delete');
-    delete from package where id in (select id from package where state = 'to_delete'); commit;'''.format(harvest_source_id=harvest_source_id)
+    delete from package where id in (select id from package where state = 'to_delete'); commit;'''.format(
+        harvest_source_id=harvest_source_id)
 
     model = context['model']
 
@@ -138,7 +131,7 @@ def harvest_source_clear(context,data_dict):
     # Refresh the index for this source to update the status object
     context.update({'validate': False, 'ignore_auth': True})
     package_dict = logic.get_action('package_show')(context,
-            {'id': harvest_source_id})
+                                                    {'id': harvest_source_id})
 
     if package_dict:
         package_index = PackageSearchIndex()
@@ -146,10 +139,10 @@ def harvest_source_clear(context,data_dict):
 
     return {'id': harvest_source_id}
 
-def harvest_source_index_clear(context,data_dict):
 
-    check_access('harvest_source_clear',context,data_dict)
-    harvest_source_id = data_dict.get('id',None)
+def harvest_source_index_clear(context, data_dict):
+    check_access('harvest_source_clear', context, data_dict)
+    harvest_source_id = data_dict.get('id', None)
 
     source = HarvestSource.get(harvest_source_id)
     if not source:
@@ -173,7 +166,8 @@ def harvest_source_index_clear(context,data_dict):
 
     return {'id': harvest_source_id}
 
-def harvest_objects_import(context,data_dict):
+
+def harvest_objects_import(context, data_dict):
     '''
         Reimports the current harvest objects
         It performs the import stage with the last fetched objects, optionally
@@ -183,15 +177,15 @@ def harvest_objects_import(context,data_dict):
         database.
     '''
     log.info('Harvest objects import: %r', data_dict)
-    check_access('harvest_objects_import',context,data_dict)
+    check_access('harvest_objects_import', context, data_dict)
 
     model = context['model']
     session = context['session']
-    source_id = data_dict.get('source_id',None)
+    source_id = data_dict.get('source_id', None)
 
-    segments = context.get('segments',None)
+    segments = context.get('segments', None)
 
-    join_datasets = context.get('join_datasets',True)
+    join_datasets = context.get('join_datasets', True)
 
     if source_id:
         source = HarvestSource.get(source_id)
@@ -204,17 +198,17 @@ def harvest_objects_import(context,data_dict):
             raise Exception('This harvest source is not active')
 
         last_objects_ids = session.query(HarvestObject.id) \
-                .join(HarvestSource) \
-                .filter(HarvestObject.source==source) \
-                .filter(HarvestObject.current==True)
+            .join(HarvestSource) \
+            .filter(HarvestObject.source == source) \
+            .filter(HarvestObject.current == True)
 
     else:
         last_objects_ids = session.query(HarvestObject.id) \
-                .filter(HarvestObject.current==True) \
+            .filter(HarvestObject.current == True) \
 
     if join_datasets:
         last_objects_ids = last_objects_ids.join(Package) \
-            .filter(Package.state==u'active')
+            .filter(Package.state == u'active')
 
     last_objects_ids = last_objects_ids.all()
 
@@ -228,7 +222,7 @@ def harvest_objects_import(context,data_dict):
 
         for harvester in PluginImplementations(IHarvester):
             if harvester.info()['name'] == obj.source.type:
-                if hasattr(harvester,'force_import'):
+                if hasattr(harvester, 'force_import'):
                     harvester.force_import = True
                 harvester.import_stage(obj)
                 break
@@ -236,8 +230,8 @@ def harvest_objects_import(context,data_dict):
     log.info('Harvest objects imported: %s', last_objects_count)
     return last_objects_count
 
-def _caluclate_next_run(frequency):
 
+def _caluclate_next_run(frequency):
     now = datetime.datetime.utcnow()
     if frequency == 'ALWAYS':
         return now
@@ -248,7 +242,7 @@ def _caluclate_next_run(frequency):
     if frequency == 'DAILY':
         return now + datetime.timedelta(days=1)
     if frequency == 'MONTHLY':
-        if now.month in (4,6,9,11):
+        if now.month in (4, 6, 9, 11):
             days = 30
         elif now.month == 2:
             if now.year % 4 == 0:
@@ -262,7 +256,6 @@ def _caluclate_next_run(frequency):
 
 
 def _make_scheduled_jobs(context, data_dict):
-
     data_dict = {'only_to_run': True,
                  'only_active': True}
     sources = _get_sources_for_user(context, data_dict)
@@ -277,14 +270,15 @@ def _make_scheduled_jobs(context, data_dict):
         source.next_run = _caluclate_next_run(source.frequency)
         source.save()
 
-def harvest_jobs_run(context,data_dict):
+
+def harvest_jobs_run(context, data_dict):
     log.info('Harvest job run: %r', data_dict)
-    check_access('harvest_jobs_run',context,data_dict)
+    check_access('harvest_jobs_run', context, data_dict)
 
     model = context['model']
     session = context['session']
 
-    source_id = data_dict.get('source_id',None)
+    source_id = data_dict.get('source_id', None)
 
     if not source_id:
         _make_scheduled_jobs(context, data_dict)
@@ -292,31 +286,31 @@ def harvest_jobs_run(context,data_dict):
     context['return_objects'] = False
 
     # Flag finished jobs as such
-    jobs = harvest_job_list(context,{'source_id':source_id,'status':u'Running'})
+    jobs = harvest_job_list(context, {'source_id': source_id, 'status': u'Running'})
     if len(jobs):
-        package_index = PackageSearchIndex()        
-        for job in jobs:            
-            if job['gather_finished']:                
+        package_index = PackageSearchIndex()
+        for job in jobs:
+            if job['gather_finished']:
                 objects = session.query(HarvestObject.id) \
-                          .filter(HarvestObject.harvest_job_id==job['id']) \
-                          .filter(and_((HarvestObject.state!=u'COMPLETE'),
-                                       (HarvestObject.state!=u'ERROR'))) \
-                          .order_by(HarvestObject.import_finished.desc())
+                    .filter(HarvestObject.harvest_job_id == job['id']) \
+                    .filter(and_((HarvestObject.state != u'COMPLETE'),
+                                 (HarvestObject.state != u'ERROR'))) \
+                    .order_by(HarvestObject.import_finished.desc())
 
-                if objects.count() == 0:                    
+                if objects.count() == 0:
                     job_obj = HarvestJob.get(job['id'])
                     job_obj.status = u'Finished'
 
                     last_object = session.query(HarvestObject) \
-                          .filter(HarvestObject.harvest_job_id==job['id']) \
-                          .filter(HarvestObject.import_finished!=None) \
-                          .order_by(HarvestObject.import_finished.desc()) \
-                          .first()
-                    if last_object:                        
+                        .filter(HarvestObject.harvest_job_id == job['id']) \
+                        .filter(HarvestObject.import_finished != None) \
+                        .order_by(HarvestObject.import_finished.desc()) \
+                        .first()
+                    if last_object:
                         job_obj.finished = last_object.import_finished
                     else:
                         job_obj.finished = datetime.datetime.utcnow()
-                    job_obj.save()                   
+                    job_obj.save()
 
                     # recreate job for datajson collection or the like.
                     source = job_obj.source
@@ -337,157 +331,158 @@ def harvest_jobs_run(context,data_dict):
                         source.save()
 
                     if config.get('ckanext.harvest.email', 'on') == 'on':
-                      #email body
+                        # email body
 
-                      sql = '''select name from package where id = :source_id;'''
+                        sql = '''select name from package where id = :source_id;'''
 
-                      q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
+                        q = model.Session.execute(sql, {'source_id': job_obj.source_id})
 
-                      for row in q:
-                        harvest_name = str(row['name'])
+                        for row in q:
+                            harvest_name = str(row['name'])
 
-                      job_url = config.get('ckan.site_url') + '/harvest/' + harvest_name + '/job/' + job_obj.id
+                        job_url = config.get('ckan.site_url') + '/harvest/' + harvest_name + '/job/' + job_obj.id
 
-                      msg = 'Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
-                    
-                      sql = '''select g.title as org, s.title as job_title from member m
+                        msg = 'Here is the summary of latest harvest job (' + job_url + ') set-up for your organization in Data.gov\n\n'
+
+                        sql = '''select g.title as org, s.title as job_title from member m
                                join public.group g on m.group_id = g.id
                                join harvest_source s on s.id = m.table_id
                                where table_id = :source_id;'''
-                             
-                      q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
-                    
-                      for row in q:
-                          msg += 'Organization: ' + str(row['org']) + '\n\n'
-                          msg += 'Harvest Job Title: ' + str(row['job_title']) + '\n\n'
-    
-                      msg += 'Date of Harvest: ' + str(job_obj.created) + ' GMT\n\n'
 
-                      out = {
-                          'last_job': None,
-                      }
-                    
-                      out['last_job'] = harvest_job_dictize(job_obj, context)
-                    
-                      msg += 'Records in Error: ' + str(out['last_job']['stats'].get('errored',0)) + '\n'
-                      msg += 'Records Added: ' + str(out['last_job']['stats'].get('added',0)) + '\n'
-                      msg += 'Records Updated: ' + str(out['last_job']['stats'].get('updated',0)) + '\n'
-                      msg += 'Records Deleted: ' + str(out['last_job']['stats'].get('deleted',0)) + '\n\n'
-       
-                      obj_error = ''
-                      job_error = ''
-                      all_updates = ''
+                        q = model.Session.execute(sql, {'source_id': job_obj.source_id})
 
-                      sql = '''select hoe.message as msg from harvest_object ho
+                        for row in q:
+                            msg += 'Organization: ' + str(row['org']) + '\n\n'
+                            msg += 'Harvest Job Title: ' + str(row['job_title']) + '\n\n'
+
+                        msg += 'Date of Harvest: ' + str(job_obj.created) + ' GMT\n\n'
+
+                        out = {
+                            'last_job': None,
+                        }
+
+                        out['last_job'] = harvest_job_dictize(job_obj, context)
+
+                        msg += 'Records in Error: ' + str(out['last_job']['stats'].get('errored', 0)) + '\n'
+                        msg += 'Records Added: ' + str(out['last_job']['stats'].get('added', 0)) + '\n'
+                        msg += 'Records Updated: ' + str(out['last_job']['stats'].get('updated', 0)) + '\n'
+                        msg += 'Records Deleted: ' + str(out['last_job']['stats'].get('deleted', 0)) + '\n\n'
+
+                        obj_error = ''
+                        job_error = ''
+                        all_updates = ''
+
+                        sql = '''select hoe.message as msg from harvest_object ho
                               inner join harvest_object_error hoe on hoe.harvest_object_id = ho.id
                               where ho.harvest_job_id = :job_id;'''
-                       
-                      q = model.Session.execute(sql, {'job_id' : job_obj.id})
-                      for row in q:
-                         obj_error += row['msg'] + '\n'
-                       
-                      #get all packages added updated and deleted by harvest job
-                      sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
+
+                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            obj_error += row['msg'] + '\n'
+
+                        # get all packages added updated and deleted by harvest job
+                        sql = '''select ho.package_id as ho_package_id, ho.harvest_source_id, ho.report_status as ho_package_status, package.title as package_title
                                from harvest_object ho
                                inner join package on package.id = ho.package_id
                                where ho.harvest_job_id = :job_id and (ho.report_status = 'added' or ho.report_status = 'updated' or ho.report_status = 'deleted')
                                order by ho.report_status ASC;'''
 
-                      q = model.Session.execute(sql, {'job_id': job_obj.id})
-                      for row in q:
-                        if row['ho_package_status'] is not None and row['ho_package_id'] is not None and row['package_title'] is not None:
-                          all_updates += row['ho_package_status'] + ' , ' + row['ho_package_id'] + ', ' + row['package_title'] + '\n'
+                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            if row['ho_package_status'] is not None and row['ho_package_id'] is not None and row[
+                                'package_title'] is not None:
+                                all_updates += row['ho_package_status'] + ' , ' + row['ho_package_id'] + ', ' + row[
+                                    'package_title'] + '\n'
 
+                        if all_updates != '':
+                            msg += 'Summary\n\n' + all_updates + '\n\n'
 
-                      if(all_updates != ''):
-                        msg += 'Summary\n\n' + all_updates + '\n\n'                      
+                        log.info('message in email:', all_updates)
+                        sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
+                        q = model.Session.execute(sql, {'job_id': job_obj.id})
+                        for row in q:
+                            job_error += row['message'] + '\n'
 
-                      log.info('message in email:',all_updates)
-                      sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
-                      q = model.Session.execute(sql, {'job_id' : job_obj.id})
-                      for row in q:
-                        job_error += row['message'] + '\n'
-                  
-                      if(obj_error != '' or job_error != ''):
-                        msg += 'Error Summary\n\n'
-                    
-                      if(obj_error != ''):
-                        msg += 'Document Error\n' + obj_error + '\n\n'
-                    
-                      if(job_error != ''):
-                        msg += 'Job Errors\n' + job_error + '\n\n'
+                        if (obj_error != '' or job_error != ''):
+                            msg += 'Error Summary\n\n'
 
-                      msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
+                        if (obj_error != ''):
+                            msg += 'Document Error\n' + obj_error + '\n\n'
 
-                      #get recipients
-                      sql = '''select group_id from member where table_id = :source_id;'''
-                      q = model.Session.execute(sql, {'source_id' : job_obj.source_id})
-                  
-                      for row in q:
-                          all_emails = {}
+                        if (job_error != ''):
+                            msg += 'Job Errors\n' + job_error + '\n\n'
 
-                          # emails from org admin
-                          sql = '''select email, name from public.user u
+                        msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
+
+                        #get recipients
+                        sql = '''select group_id from member where table_id = :source_id;'''
+                        q = model.Session.execute(sql, {'source_id': job_obj.source_id})
+
+                        for row in q:
+                            all_emails = {}
+
+                            # emails from org admin
+                            sql = '''select email, name from public.user u
                                   join member m on m.table_id = u.id
                                   where capacity = 'admin' and state = 'active' and group_id = :group_id;'''
-                          q1 = model.Session.execute(sql, {'group_id' : row['group_id']})
-                          for row1 in q1:
-                              _email = str(row1['email']).lower()
-                              _name = str(row1['name'])
-                              if _email:
-                                  all_emails[_email] = _name
+                            q1 = model.Session.execute(sql, {'group_id': row['group_id']})
+                            for row1 in q1:
+                                _email = str(row1['email']).lower()
+                                _name = str(row1['name'])
+                                if _email:
+                                    all_emails[_email] = _name
 
-                          # emails from org email_list
-                          sql = '''SELECT value FROM group_extra
+                            # emails from org email_list
+                            sql = '''SELECT value FROM group_extra
                                    WHERE state = 'active' AND key = 'email_list'
                                    AND group_id = :group_id'''
-                          result = model.Session.execute(sql,
-                                {'group_id':row['group_id']}).fetchone()
+                            result = model.Session.execute(sql,
+                                                           {'group_id': row['group_id']}).fetchone()
 
-                          if result:
-                            org_emails = result[0].strip()
-                            if org_emails:
-                              org_email_list = org_emails.replace(';',' ').replace(',',' ').split()
-                              for org_email in org_email_list:
-                                all_emails[org_email.lower()] = org_email.lower()
+                            if result:
+                                org_emails = result[0].strip()
+                                if org_emails:
+                                    org_email_list = org_emails.replace(';', ' ').replace(',', ' ').split()
+                                    for org_email in org_email_list:
+                                        all_emails[org_email.lower()] = org_email.lower()
 
-                          for _email, _name in all_emails.iteritems():
-                              email = {'recipient_name': _name,
-                                       'recipient_email': _email,
-                                       'subject': 'Data.gov Latest Harvest Job Report',
-                                       'body': msg}
-         
-                              try:
-                                  mailer.mail_recipient(**email)
-                              except Exception:
-                                  pass
- 
+                            for _email, _name in all_emails.iteritems():
+                                email = {'recipient_name': _name,
+                                         'recipient_email': _email,
+                                         'subject': 'Data.gov Latest Harvest Job Report',
+                                         'body': msg}
+
+                                try:
+                                    mailer.mail_recipient(**email)
+                                except Exception:
+                                    pass
+
                     # Reindex the harvest source dataset so it has the latest
                     # status
-                    if 'extras_as_string'in context:
+                    if 'extras_as_string' in context:
                         del context['extras_as_string']
                     context.update({'validate': False, 'ignore_auth': True})
                     package_dict = logic.get_action('package_show')(context,
-                            {'id': job_obj.source.id})
+                                                                    {'id': job_obj.source.id})
 
                     if package_dict:
                         package_index.index_package(package_dict)
-            
+
     # resubmit old redis tasks
     resubmit_jobs()
 
     # Check if there are pending harvest jobs
-    jobs = harvest_job_list(context,{'source_id':source_id,'status':u'New'})
+    jobs = harvest_job_list(context, {'source_id': source_id, 'status': u'New'})
     if len(jobs) == 0:
         log.info('No new harvest jobs.')
-    
+
     # Send each job to the gather queue
     publisher = get_gather_publisher()
     sent_jobs = []
     for job in jobs:
-        context['detailed'] = False     
-        source = harvest_source_show(context,{'id':job['source_id']})
-        #source = harvest_source_show(context,{'id':source_id})
+        context['detailed'] = False
+        source = harvest_source_show(context, {'id': job['source_id']})
+        # source = harvest_source_show(context,{'id':source_id})
         if source['active']:
             job_obj = HarvestJob.get(job['id'])
             job_obj.status = job['status'] = u'Running'
@@ -499,6 +494,7 @@ def harvest_jobs_run(context,data_dict):
     publisher.close()
     return sent_jobs
 
+
 def harvest_sources_reindex(context, data_dict):
     '''
         Reindexes all harvest source datasets with the latest status
@@ -509,17 +505,17 @@ def harvest_sources_reindex(context, data_dict):
     model = context['model']
 
     packages = model.Session.query(model.Package) \
-                            .filter(model.Package.type==DATASET_TYPE_NAME) \
-                            .filter(model.Package.state==u'active') \
-                            .all()
+        .filter(model.Package.type == DATASET_TYPE_NAME) \
+        .filter(model.Package.state == u'active') \
+        .all()
 
     package_index = PackageSearchIndex()
     for package in packages:
-        if 'extras_as_string'in context:
+        if 'extras_as_string' in context:
             del context['extras_as_string']
         context.update({'validate': False, 'ignore_auth': True})
         package_dict = logic.get_action('package_show')(context,
-            {'id': package.id})
+                                                        {'id': package.id})
         log.debug('Updating search index for harvest source {0}'.format(package.id))
         package_index.index_package(package_dict, defer_commit=True)
 

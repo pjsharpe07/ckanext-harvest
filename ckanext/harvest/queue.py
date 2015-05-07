@@ -3,13 +3,12 @@ import datetime
 import json
 
 import pika
-
 from ckan.lib.base import config
 from ckan.plugins import PluginImplementations
 from ckan import model
-
-from ckanext.harvest.model import HarvestJob, HarvestObject,HarvestGatherError
+from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError
 from ckanext.harvest.interfaces import IHarvester
+
 
 log = logging.getLogger(__name__)
 assert not log.disabled
@@ -30,6 +29,7 @@ REDIS_DB = 0
 EXCHANGE_TYPE = 'direct'
 EXCHANGE_NAME = 'ckan.harvest'
 
+
 def get_connection():
     backend = config.get('ckan.harvest.mq.type', MQ_TYPE)
     if backend == 'ampq':
@@ -37,6 +37,7 @@ def get_connection():
     if backend == 'redis':
         return get_connection_redis()
     raise Exception('not a valid queue type %s' % backend)
+
 
 def get_connection_ampq():
     try:
@@ -58,11 +59,14 @@ def get_connection_ampq():
 
     return pika.BlockingConnection(parameters)
 
+
 def get_connection_redis():
     import redis
+
     return redis.StrictRedis(host=config.get('ckan.harvest.mq.hostname', HOSTNAME),
-                          port=int(config.get('ckan.harvest.mq.port', REDIS_PORT)),
-                          db=int(config.get('ckan.harvest.mq.redis_db', REDIS_DB)))
+                             port=int(config.get('ckan.harvest.mq.port', REDIS_PORT)),
+                             db=int(config.get('ckan.harvest.mq.redis_db', REDIS_DB)))
+
 
 def purge_queues():
     connection = get_connection()
@@ -74,6 +78,7 @@ def purge_queues():
     if config.get('ckan.harvest.mq.type') == 'redis':
         connection.flushall()
 
+
 def resubmit_jobs():
     if config.get('ckan.harvest.mq.type') != 'redis':
         return
@@ -82,21 +87,22 @@ def resubmit_jobs():
     for key in harvest_object_pending:
         date_of_key = datetime.datetime.strptime(redis.get(key),
                                                  "%Y-%m-%d %H:%M:%S.%f")
-        if (datetime.datetime.now() - date_of_key).seconds > 180: # 3 minuites for fetch and import max
+        if (datetime.datetime.now() - date_of_key).seconds > 180:  # 3 minuites for fetch and import max
             redis.rpush('harvest_object_id',
-                json.dumps({'harvest_object_id': key.split(':')[-1]})
-            )
+                        json.dumps({'harvest_object_id': key.split(':')[-1]})
+                        )
             redis.delete(key)
 
     harvest_jobs_pending = redis.keys('harvest_job_id:*')
     for key in harvest_jobs_pending:
         date_of_key = datetime.datetime.strptime(redis.get(key),
                                                  "%Y-%m-%d %H:%M:%S.%f")
-        if (datetime.datetime.now() - date_of_key).seconds > 7200: # 3 hours for a gather
+        if (datetime.datetime.now() - date_of_key).seconds > 7200:  # 3 hours for a gather
             redis.rpush('harvest_job_id',
-                json.dumps({'harvest_job_id': key.split(':')[-1]})
-            )
+                        json.dumps({'harvest_job_id': key.split(':')[-1]})
+                        )
             redis.delete(key)
+
 
 class Publisher(object):
     def __init__(self, connection, channel, exchange, routing_key):
@@ -104,21 +110,25 @@ class Publisher(object):
         self.channel = channel
         self.exchange = exchange
         self.routing_key = routing_key
+
     def send(self, body, **kw):
         return self.channel.basic_publish(self.exchange,
                                           self.routing_key,
                                           json.dumps(body),
                                           properties=pika.BasicProperties(
-                                             delivery_mode = 2, # make message persistent
+                                              delivery_mode=2,  # make message persistent
                                           ),
                                           **kw)
+
     def close(self):
         self.connection.close()
 
+
 class RedisPublisher(object):
     def __init__(self, redis, routing_key):
-        self.redis = redis ## not used
+        self.redis = redis  ## not used
         self.routing_key = routing_key
+
     def send(self, body, **kw):
         value = json.dumps(body)
         # remove if already there
@@ -128,6 +138,7 @@ class RedisPublisher(object):
 
     def close(self):
         return
+
 
 def get_publisher(routing_key):
     connection = get_connection()
@@ -145,32 +156,39 @@ def get_publisher(routing_key):
 
 class FakeMethod(object):
     ''' This is to act like the method returned by ampq'''
+
     def __init__(self, message):
         self.delivery_tag = message
+
 
 class RedisConsumer(object):
     def __init__(self, redis, routing_key):
         self.redis = redis
         self.routing_key = routing_key
+
     def consume(self, queue):
         while True:
             key, body = self.redis.blpop(self.routing_key)
             self.redis.set(self.persistance_key(body),
                            str(datetime.datetime.now()))
             yield (FakeMethod(body), self, body)
+
     def persistance_key(self, message):
         message = json.loads(message)
         return self.routing_key + ':' + str(message[self.routing_key])
+
     def basic_ack(self, message):
         self.redis.delete(self.persistance_key(message))
+
     def queue_purge(self, queue):
         self.redis.flushall()
+
     def basic_get(self, queue):
         body = self.redis.lpop(self.routing_key)
         return (FakeMethod(body), self, body)
 
-def get_consumer(queue_name, routing_key):
 
+def get_consumer(queue_name, routing_key):
     connection = get_connection()
     backend = config.get('ckan.harvest.mq.type', MQ_TYPE)
 
@@ -241,15 +259,15 @@ def gather_callback(channel, method, header, body):
                 return False
 
             log.debug('Received from plugin gather_stage: {0} objects (first: {1} last: {2})'.format(
-                        len(harvest_object_ids), harvest_object_ids[:1], harvest_object_ids[-1:]))
+                len(harvest_object_ids), harvest_object_ids[:1], harvest_object_ids[-1:]))
             for id in harvest_object_ids:
                 # Send the id to the fetch queue
-                publisher.send({'harvest_object_id':id})
+                publisher.send({'harvest_object_id': id})
             log.debug('Sent {0} objects to the fetch queue'.format(len(harvest_object_ids)))
 
     if not harvester_found:
         msg = 'No harvester could be found for source type %s' % job.source.type
-        err = HarvestGatherError(message=msg,job=job)
+        err = HarvestGatherError(message=msg, job=job)
         err.save()
         log.error(msg)
 
@@ -266,7 +284,6 @@ def fetch_callback(channel, method, header, body):
         log.error('No harvest object id received')
         channel.basic_ack(method.delivery_tag)
         return False
-
 
     obj = HarvestObject.get(id)
     if not obj:
@@ -293,6 +310,7 @@ def fetch_callback(channel, method, header, body):
 
     model.Session.remove()
     channel.basic_ack(method.delivery_tag)
+
 
 def fetch_and_import_stages(harvester, obj):
     obj.fetch_started = datetime.datetime.utcnow()
@@ -323,30 +341,34 @@ def fetch_and_import_stages(harvester, obj):
     elif obj.current == False:
         obj.report_status = 'deleted'
     elif len(model.Session.query(HarvestObject)
-           .filter_by(package_id = obj.package_id)
-           .limit(2)
-           .all()) == 2:
+            .filter_by(package_id=obj.package_id)
+            .limit(2)
+            .all()) == 2:
         obj.report_status = 'updated'
     else:
         obj.report_status = 'added'
     obj.save()
 
+
 def get_gather_consumer():
-    consumer = get_consumer('ckan.harvest.gather','harvest_job_id')
+    consumer = get_consumer('ckan.harvest.gather', 'harvest_job_id')
     log.debug('Gather queue consumer registered')
     return consumer
 
+
 def get_fetch_consumer():
-    consumer = get_consumer('ckan.harvest.fetch','harvest_object_id')
+    consumer = get_consumer('ckan.harvest.fetch', 'harvest_object_id')
     log.debug('Fetch queue consumer registered')
     return consumer
 
+
 def get_gather_publisher():
     return get_publisher('harvest_job_id')
+
 
 def get_fetch_publisher():
     return get_publisher('harvest_object_id')
 
 # Get a publisher for the fetch queue
-#fetch_publisher = get_fetch_publisher()
+# fetch_publisher = get_fetch_publisher()
 

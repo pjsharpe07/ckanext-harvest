@@ -1,28 +1,30 @@
+import json
+
 import ckanext.harvest.model as harvest_model
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 from ckanext.harvest.interfaces import IHarvester
 import ckanext.harvest.queue as queue
 from ckan.plugins.core import SingletonPlugin, implements
-import json
 import ckan.logic as logic
 from ckan import model
 
 
 class TestHarvester(SingletonPlugin):
     implements(IHarvester)
+
     def info(self):
         return {'name': 'test', 'title': 'test', 'description': 'test'}
 
     def gather_stage(self, harvest_job):
 
         if harvest_job.source.url.startswith('basic_test'):
-            obj = HarvestObject(guid = 'test1', job = harvest_job)
+            obj = HarvestObject(guid='test1', job=harvest_job)
             obj.extras.append(HarvestObjectExtra(key='key', value='value'))
-            obj2 = HarvestObject(guid = 'test2', job = harvest_job)
-            obj3 = HarvestObject(guid = 'test_to_delete', job = harvest_job)
+            obj2 = HarvestObject(guid='test2', job=harvest_job)
+            obj3 = HarvestObject(guid='test_to_delete', job=harvest_job)
             obj.add()
             obj2.add()
-            obj3.save() # this will commit both
+            obj3.save()  # this will commit both
             return [obj.id, obj2.id, obj3.id]
 
         return []
@@ -60,9 +62,9 @@ class TestHarvester(SingletonPlugin):
 
         # set previous objects to not current
         previous_object = model.Session.query(HarvestObject) \
-                          .filter(HarvestObject.guid==harvest_object.guid) \
-                          .filter(HarvestObject.current==True) \
-                          .first()
+            .filter(HarvestObject.guid == harvest_object.guid) \
+            .filter(HarvestObject.current == True) \
+            .first()
         if previous_object:
             previous_object.current = False
             previous_object.save()
@@ -92,11 +94,10 @@ class TestHarvestQueue(object):
     def test_01_basic_harvester(self):
 
         ### make sure queues/exchanges are created first and are empty
-        consumer = queue.get_consumer('ckan.harvest.gather','harvest_job_id')
-        consumer_fetch = queue.get_consumer('ckan.harvest.fetch','harvest_object_id')
+        consumer = queue.get_consumer('ckan.harvest.gather', 'harvest_job_id')
+        consumer_fetch = queue.get_consumer('ckan.harvest.fetch', 'harvest_object_id')
         consumer.queue_purge(queue='ckan.harvest.gather')
         consumer_fetch.queue_purge(queue='ckan.harvest.fetch')
-
 
         user = logic.get_action('get_site_user')(
             {'model': model, 'ignore_auth': True}, {}
@@ -120,10 +121,9 @@ class TestHarvestQueue(object):
         assert harvest_source['source_type'] == 'test', harvest_source
         assert harvest_source['url'] == 'basic_test', harvest_source
 
-
         harvest_job = logic.get_action('harvest_job_create')(
             context,
-            {'source_id':harvest_source['id']}
+            {'source_id': harvest_source['id']}
         )
 
         job_id = harvest_job['id']
@@ -134,7 +134,7 @@ class TestHarvestQueue(object):
 
         logic.get_action('harvest_jobs_run')(
             context,
-            {'source_id':harvest_source['id']}
+            {'source_id': harvest_source['id']}
         )
 
         assert logic.get_action('harvest_job_show')(
@@ -154,7 +154,6 @@ class TestHarvestQueue(object):
         assert all_objects[1].state == 'WAITING'
         assert all_objects[2].state == 'WAITING'
 
-
         assert len(model.Session.query(HarvestObject).all()) == 3
         assert len(model.Session.query(HarvestObjectExtra).all()) == 1
 
@@ -167,8 +166,8 @@ class TestHarvestQueue(object):
         queue.fetch_callback(consumer_fetch, *reply)
 
         count = model.Session.query(model.Package) \
-                .filter(model.Package.type=='dataset') \
-                .count()
+            .filter(model.Package.type == 'dataset') \
+            .count()
         assert count == 3
         all_objects = model.Session.query(HarvestObject).filter_by(current=True).all()
 
@@ -184,7 +183,7 @@ class TestHarvestQueue(object):
         try:
             logic.get_action('harvest_jobs_run')(
                 context,
-                {'source_id':harvest_source['id']}
+                {'source_id': harvest_source['id']}
             )
         except Exception, e:
             assert 'There are no new harvesting jobs' in str(e)
@@ -210,12 +209,12 @@ class TestHarvestQueue(object):
         ########### Second run ########################
         harvest_job = logic.get_action('harvest_job_create')(
             context,
-            {'source_id':harvest_source['id']}
+            {'source_id': harvest_source['id']}
         )
 
         logic.get_action('harvest_jobs_run')(
             context,
-            {'source_id':harvest_source['id']}
+            {'source_id': harvest_source['id']}
         )
 
         job_id = harvest_job['id']
@@ -240,8 +239,8 @@ class TestHarvestQueue(object):
         queue.fetch_callback(consumer_fetch, *reply)
 
         count = model.Session.query(model.Package) \
-                .filter(model.Package.type=='dataset') \
-                .count()
+            .filter(model.Package.type == 'dataset') \
+            .count()
         assert count == 3
 
         all_objects = model.Session.query(HarvestObject).filter_by(report_status='added').all()
@@ -257,7 +256,7 @@ class TestHarvestQueue(object):
         try:
             logic.get_action('harvest_jobs_run')(
                 context,
-                {'source_id':harvest_source['id']}
+                {'source_id': harvest_source['id']}
             )
         except Exception, e:
             assert 'There are no new harvesting jobs' in str(e)

@@ -27,7 +27,8 @@ def harvest_source_show(context, data_dict):
     except pt.NotAuthorized:
         return {'success': False,
                 'msg': pt._('User {0} not authorized to read harvest source {1}')
-                .format(user, source_id)}
+                    .format(user, source_id)}
+
 
 def harvest_source_show_status(context, data_dict):
     '''
@@ -36,6 +37,7 @@ def harvest_source_show_status(context, data_dict):
         It forwards the checks to harvest_source_show.
     '''
     return harvest_source_show(context, data_dict)
+
 
 def harvest_source_list(context, data_dict):
     '''
@@ -65,7 +67,7 @@ def harvest_job_show(context, data_dict):
     except pt.NotAuthorized:
         return {'success': False,
                 'msg': pt._('User {0} not authorized to see jobs from source {1}')
-                .format(user, job.source.id)}
+                    .format(user, job.source.id)}
 
 
 def harvest_job_list(context, data_dict):
@@ -87,8 +89,7 @@ def harvest_job_list(context, data_dict):
     except pt.NotAuthorized:
         return {'success': False,
                 'msg': pt._('User {0} not authorized to list jobs for source {1}')
-                .format(user, source_id)}
-
+                    .format(user, source_id)}
 
 
 def harvest_object_show(context, data_dict):

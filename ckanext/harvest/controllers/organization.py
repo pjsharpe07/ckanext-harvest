@@ -1,28 +1,26 @@
 import logging
-import genshi
 from urllib import urlencode
 
+import genshi
 from ckan import plugins as p
 from ckan.lib.base import c, model, request, render, h, g
 from ckan.lib.base import abort
 import ckan.lib.maintain as maintain
 import ckan.lib.search as search
 import ckan.new_authz
-
 from ckan.controllers.group import GroupController
-
 from ckanext.harvest.plugin import DATASET_TYPE_NAME
 
 
 try:
-    from collections import OrderedDict # 2.7
+    from collections import OrderedDict  # 2.7
 except ImportError:
     from sqlalchemy.util import OrderedDict
 
 log = logging.getLogger(__name__)
 
-class OrganizationController(GroupController):
 
+class OrganizationController(GroupController):
     def source_list(self, id, limit=20):
         self.group_type = 'organization'
         context = {'model': model, 'session': model.Session,
@@ -67,10 +65,10 @@ class OrganizationController(GroupController):
 
         try:
             description_formatted = ckan.misc.MarkdownFormat().to_html(
-            c.group_dict.get('description', ''))
+                c.group_dict.get('description', ''))
             c.description_formatted = genshi.HTML(description_formatted)
         except Exception, e:
-            error_msg = "<span class='inline-warning'>%s</span>" %\
+            error_msg = "<span class='inline-warning'>%s</span>" % \
                         p.toolkit._("Cannot render description")
             c.description_formatted = genshi.HTML(error_msg)
 
@@ -88,7 +86,7 @@ class OrganizationController(GroupController):
         # most search operations should reset the page counter:
         params_nopage = [(k, v) for k, v in request.params.items()
                          if k != 'page']
-        #sort_by = request.params.get('sort', 'name asc')
+        # sort_by = request.params.get('sort', 'name asc')
         sort_by = request.params.get('sort', None)
 
         def search_url(params):
@@ -106,9 +104,9 @@ class OrganizationController(GroupController):
                                         id=id)
             else:
                 url = self._url_for(controller='group', action='read',
-                                id=id)
+                                    id=id)
             params = [(k, v.encode('utf-8') if isinstance(v, basestring)
-                       else str(v)) for k, v in params]
+            else str(v)) for k, v in params]
             return url + u'?' + urlencode(params)
 
         def drill_down_url(**by):
@@ -121,8 +119,8 @@ class OrganizationController(GroupController):
 
         def remove_field(key, value=None, replace=None):
             return h.remove_url_param(key, value=value, replace=replace,
-                                  controller='group', action='read',
-                                  extras=dict(id=c.group_dict.get('name')))
+                                      controller='group', action='read',
+                                      extras=dict(id=c.group_dict.get('name')))
 
         c.remove_field = remove_field
 
@@ -154,9 +152,9 @@ class OrganizationController(GroupController):
             facets = OrderedDict()
 
             default_facet_titles = {'groups': p.toolkit._('Groups'),
-                              'tags': p.toolkit._('Tags'),
-                              'res_format': p.toolkit._('Formats'),
-                              'license': p.toolkit._('Licence'), }
+                                    'tags': p.toolkit._('Tags'),
+                                    'res_format': p.toolkit._('Formats'),
+                                    'license': p.toolkit._('Licence'), }
 
             for facet in g.facets:
                 if facet in default_facet_titles:
@@ -202,8 +200,8 @@ class OrganizationController(GroupController):
 
             c.facets = query['facets']
             maintain.deprecate_context_item(
-              'facets',
-              'Use `c.search_facets` instead.')
+                'facets',
+                'Use `c.search_facets` instead.')
 
             c.search_facets = query['search_facets']
             c.search_facets_limits = {}

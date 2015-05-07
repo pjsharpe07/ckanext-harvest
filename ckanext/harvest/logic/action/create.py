@@ -1,19 +1,18 @@
 import logging
 
 from ckan import logic
-
 from ckan.logic import NotFound, check_access
 from ckanext.harvest.logic import HarvestJobExists
-
 from ckanext.harvest.plugin import DATASET_TYPE_NAME
 from ckanext.harvest.model import (HarvestSource, HarvestJob)
 from ckanext.harvest.logic.dictization import harvest_job_dictize
 from ckanext.harvest.logic.schema import harvest_source_show_package_schema
-from ckanext.harvest.logic.action.get import harvest_source_list,harvest_job_list
+from ckanext.harvest.logic.action.get import harvest_source_list, harvest_job_list
 
 log = logging.getLogger(__name__)
 
-def harvest_source_create(context,data_dict):
+
+def harvest_source_create(context, data_dict):
     '''
     Creates a new harvest source
 
@@ -64,9 +63,9 @@ def harvest_source_create(context,data_dict):
     return source
 
 
-def harvest_job_create(context,data_dict):
+def harvest_job_create(context, data_dict):
     log.info('Harvest job create: %r', data_dict)
-    check_access('harvest_job_create',context,data_dict)
+    check_access('harvest_job_create', context, data_dict)
 
     source_id = data_dict['source_id']
 
@@ -92,16 +91,17 @@ def harvest_job_create(context,data_dict):
 
     job.save()
     log.info('Harvest job saved %s', job.id)
-    return harvest_job_dictize(job,context)
+    return harvest_job_dictize(job, context)
 
-def harvest_job_create_all(context,data_dict):
+
+def harvest_job_create_all(context, data_dict):
     log.info('Harvest job create all: %r', data_dict)
-    check_access('harvest_job_create_all',context,data_dict)
+    check_access('harvest_job_create_all', context, data_dict)
 
-    data_dict.update({'only_active':True})
+    data_dict.update({'only_active': True})
 
     # Get all active sources
-    sources = harvest_source_list(context,data_dict)
+    sources = harvest_source_list(context, data_dict)
     jobs = []
     # Create a new job for each, if there isn't already one
     for source in sources:
@@ -110,11 +110,12 @@ def harvest_job_create_all(context,data_dict):
             log.info('Skipping source %s as it already has a pending job', source['id'])
             continue
 
-        job = harvest_job_create(context,{'source_id':source['id']})
+        job = harvest_job_create(context, {'source_id': source['id']})
         jobs.append(job)
 
     log.info('Created jobs for %i harvest sources', len(jobs))
     return jobs
+
 
 def _check_for_existing_jobs(context, source_id):
     '''
@@ -123,16 +124,16 @@ def _check_for_existing_jobs(context, source_id):
 
     rtype: boolean
     '''
-    data_dict ={
-        'source_id':source_id,
-        'status':u'New'
+    data_dict = {
+        'source_id': source_id,
+        'status': u'New'
     }
-    exist_new = harvest_job_list(context,data_dict)
-    data_dict ={
-        'source_id':source_id,
-        'status':u'Running'
+    exist_new = harvest_job_list(context, data_dict)
+    data_dict = {
+        'source_id': source_id,
+        'status': u'Running'
     }
-    exist_running = harvest_job_list(context,data_dict)
+    exist_running = harvest_job_list(context, data_dict)
     exist = len(exist_new + exist_running) > 0
 
     return exist

@@ -1,26 +1,25 @@
 import logging
-from sqlalchemy import or_
-from ckan.model import User
 import datetime
 
+from sqlalchemy import or_
+from ckan.model import User
 from ckan import logic
 from ckan.plugins import PluginImplementations
 from ckanext.harvest.interfaces import IHarvester
-
 import ckan.plugins as p
 from ckan.logic import NotFound, check_access, side_effect_free
-
 from ckanext.harvest import model as harvest_model
-
 from ckanext.harvest.model import (HarvestSource, HarvestJob, HarvestObject)
 from ckanext.harvest.logic.dictization import (harvest_source_dictize,
                                                harvest_job_dictize,
                                                harvest_object_dictize)
 
+
 log = logging.getLogger(__name__)
 
+
 @side_effect_free
-def harvest_source_show(context,data_dict):
+def harvest_source_show(context, data_dict):
     '''
     Returns the metadata of a harvest source
 
@@ -34,7 +33,6 @@ def harvest_source_show(context,data_dict):
     :rtype: dictionary
     '''
 
-
     source_dict = logic.get_action('package_show')(context, data_dict)
 
     # For compatibility with old code, add the active field
@@ -42,6 +40,7 @@ def harvest_source_show(context,data_dict):
     source_dict['active'] = (source_dict['state'] == 'active')
 
     return source_dict
+
 
 @side_effect_free
 def harvest_source_show_status(context, data_dict):
@@ -61,7 +60,6 @@ def harvest_source_show_status(context, data_dict):
 
     p.toolkit.check_access('harvest_source_show_status', context, data_dict)
 
-
     model = context.get('model')
 
     source = harvest_model.HarvestSource.get(data_dict['id'])
@@ -69,10 +67,10 @@ def harvest_source_show_status(context, data_dict):
         raise p.toolkit.ObjectNotFound('Harvest source {0} does not exist'.format(data_dict['id']))
 
     out = {
-           'job_count': 0,
-           'last_job': None,
-           'total_datasets': 0,
-           }
+        'job_count': 0,
+        'last_job': None,
+        'total_datasets': 0,
+    }
 
     jobs = harvest_model.HarvestJob.filter(source=source).all()
 
@@ -84,7 +82,7 @@ def harvest_source_show_status(context, data_dict):
 
     # Get the most recent job
     last_job = harvest_model.HarvestJob.filter(source=source) \
-               .order_by(harvest_model.HarvestJob.created.desc()).first()
+        .order_by(harvest_model.HarvestJob.created.desc()).first()
 
     if not last_job:
         return out
@@ -93,15 +91,16 @@ def harvest_source_show_status(context, data_dict):
 
     # Overall statistics
     packages = model.Session.query(model.Package) \
-            .join(harvest_model.HarvestObject) \
-            .filter(harvest_model.HarvestObject.harvest_source_id==source.id) \
-            .filter(harvest_model.HarvestObject.current==True) \
-            .filter(model.Package.state==u'active') \
-            .filter(model.Package.private==False) \
-            .group_by(model.Package.id)
+        .join(harvest_model.HarvestObject) \
+        .filter(harvest_model.HarvestObject.harvest_source_id == source.id) \
+        .filter(harvest_model.HarvestObject.current == True) \
+        .filter(model.Package.state == u'active') \
+        .filter(model.Package.private == False) \
+        .group_by(model.Package.id)
     out['total_datasets'] = packages.count()
 
     return out
+
 
 @side_effect_free
 def harvest_source_list(context, data_dict):
@@ -109,16 +108,17 @@ def harvest_source_list(context, data_dict):
     TODO: Use package search
     '''
 
-    check_access('harvest_source_list',context,data_dict)
+    check_access('harvest_source_list', context, data_dict)
 
     model = context['model']
     session = context['session']
-    user = context.get('user','')
+    user = context.get('user', '')
 
     sources = _get_sources_for_user(context, data_dict)
 
-    context.update({'detailed':False})
+    context.update({'detailed': False})
     return [harvest_source_dictize(source, context) for source in sources]
+
 
 @side_effect_free
 def harvest_source_for_a_dataset(context, data_dict):
@@ -134,34 +134,34 @@ def harvest_source_for_a_dataset(context, data_dict):
 
     dataset_id = data_dict.get('id')
 
-    query = session.query(HarvestSource)\
-            .join(HarvestObject)\
-            .filter_by(package_id=dataset_id)\
-            .order_by(HarvestObject.gathered.desc())
-    source = query.first() # newest
+    query = session.query(HarvestSource) \
+        .join(HarvestObject) \
+        .filter_by(package_id=dataset_id) \
+        .order_by(HarvestObject.gathered.desc())
+    source = query.first()  # newest
 
     if not source:
         raise NotFound
 
-    return harvest_source_dictize(source,context)
+    return harvest_source_dictize(source, context)
+
 
 @side_effect_free
-def harvest_job_show(context,data_dict):
-
-    check_access('harvest_job_show',context,data_dict)
+def harvest_job_show(context, data_dict):
+    check_access('harvest_job_show', context, data_dict)
 
     id = data_dict.get('id')
-    attr = data_dict.get('attr',None)
+    attr = data_dict.get('attr', None)
 
-    job = HarvestJob.get(id,attr=attr)
+    job = HarvestJob.get(id, attr=attr)
     if not job:
         raise NotFound
 
-    return harvest_job_dictize(job,context)
+    return harvest_job_dictize(job, context)
+
 
 @side_effect_free
 def harvest_job_report(context, data_dict):
-
     check_access('harvest_job_show', context, data_dict)
 
     model = context['model']
@@ -178,9 +178,9 @@ def harvest_job_report(context, data_dict):
 
     # Gather errors
     q = model.Session.query(harvest_model.HarvestGatherError) \
-                      .join(harvest_model.HarvestJob) \
-                      .filter(harvest_model.HarvestGatherError.harvest_job_id==job.id) \
-                      .order_by(harvest_model.HarvestGatherError.created.desc())
+        .join(harvest_model.HarvestJob) \
+        .filter(harvest_model.HarvestGatherError.harvest_job_id == job.id) \
+        .order_by(harvest_model.HarvestGatherError.created.desc())
 
     for error in q.all():
         report['gather_errors'].append({
@@ -194,13 +194,13 @@ def harvest_job_report(context, data_dict):
     original_url_builder = None
     for harvester in PluginImplementations(IHarvester):
         if harvester.info()['name'] == job.source.type:
-             if hasattr(harvester, 'get_original_url'):
+            if hasattr(harvester, 'get_original_url'):
                 original_url_builder = harvester.get_original_url
 
     q = model.Session.query(harvest_model.HarvestObjectError, harvest_model.HarvestObject.guid) \
-                      .join(harvest_model.HarvestObject) \
-                      .filter(harvest_model.HarvestObject.harvest_job_id==job.id) \
-                      .order_by(harvest_model.HarvestObjectError.harvest_object_id)
+        .join(harvest_model.HarvestObject) \
+        .filter(harvest_model.HarvestObject.harvest_job_id == job.id) \
+        .order_by(harvest_model.HarvestObjectError.harvest_object_id)
 
     for error, guid in q.all():
         if not error.harvest_object_id in report['object_errors']:
@@ -217,78 +217,78 @@ def harvest_job_report(context, data_dict):
             'message': error.message,
             'line': error.line,
             'type': error.stage
-         })
+        })
 
     return report
 
-@side_effect_free
-def harvest_job_list(context,data_dict):
 
-    check_access('harvest_job_list',context,data_dict)
+@side_effect_free
+def harvest_job_list(context, data_dict):
+    check_access('harvest_job_list', context, data_dict)
 
     model = context['model']
     session = context['session']
 
-    source_id = data_dict.get('source_id',False)
+    source_id = data_dict.get('source_id', False)
     status = data_dict.get('status', False)
 
     query = session.query(HarvestJob)
 
     if source_id:
-        query = query.filter(HarvestJob.source_id==source_id)
+        query = query.filter(HarvestJob.source_id == source_id)
 
     if status:
-        query = query.filter(HarvestJob.status==status)
+        query = query.filter(HarvestJob.status == status)
 
     query = query.order_by(HarvestJob.created.desc())
 
-    #jobs = query.slice(0,10)
-    
+    # jobs = query.slice(0,10)
+
     jobs = query.all()
 
     context['return_error_summary'] = False
     return [harvest_job_dictize(job, context) for job in jobs]
 
-@side_effect_free
-def harvest_object_show(context,data_dict):
 
-    check_access('harvest_object_show',context,data_dict)
+@side_effect_free
+def harvest_object_show(context, data_dict):
+    check_access('harvest_object_show', context, data_dict)
 
     id = data_dict.get('id')
-    attr = data_dict.get('attr',None)
-    obj = HarvestObject.get(id,attr=attr)
+    attr = data_dict.get('attr', None)
+    obj = HarvestObject.get(id, attr=attr)
     if not obj:
         raise NotFound
 
-    return harvest_object_dictize(obj,context)
+    return harvest_object_dictize(obj, context)
+
 
 @side_effect_free
-def harvest_object_list(context,data_dict):
-
-    check_access('harvest_object_list',context,data_dict)
+def harvest_object_list(context, data_dict):
+    check_access('harvest_object_list', context, data_dict)
 
     model = context['model']
     session = context['session']
 
-    only_current = data_dict.get('only_current',True)
-    source_id = data_dict.get('source_id',False)
+    only_current = data_dict.get('only_current', True)
+    source_id = data_dict.get('source_id', False)
 
     query = session.query(HarvestObject)
 
     if source_id:
-        query = query.filter(HarvestObject.source_id==source_id)
+        query = query.filter(HarvestObject.source_id == source_id)
 
     if only_current:
-        query = query.filter(HarvestObject.current==True)
+        query = query.filter(HarvestObject.current == True)
 
     objects = query.all()
 
-    return [getattr(obj,'id') for obj in objects]
+    return [getattr(obj, 'id') for obj in objects]
+
 
 @side_effect_free
-def harvesters_info_show(context,data_dict):
-
-    check_access('harvesters_info_show',context,data_dict)
+def harvesters_info_show(context, data_dict):
+    check_access('harvesters_info_show', context, data_dict)
 
     available_harvesters = []
     for harvester in PluginImplementations(IHarvester):
@@ -296,31 +296,31 @@ def harvesters_info_show(context,data_dict):
         if not info or 'name' not in info:
             log.error('Harvester %r does not provide the harvester name in the info response' % str(harvester))
             continue
-        info['show_config'] = (info.get('form_config_interface','') == 'Text')
+        info['show_config'] = (info.get('form_config_interface', '') == 'Text')
         available_harvesters.append(info)
 
     return available_harvesters
 
-def _get_sources_for_user(context,data_dict):
 
+def _get_sources_for_user(context, data_dict):
     model = context['model']
     session = context['session']
-    user = context.get('user','')
+    user = context.get('user', '')
 
-    only_active = data_dict.get('only_active',False)
-    only_to_run = data_dict.get('only_to_run',False)
+    only_active = data_dict.get('only_active', False)
+    only_to_run = data_dict.get('only_to_run', False)
 
     query = session.query(HarvestSource) \
-                .order_by(HarvestSource.created.desc())
+        .order_by(HarvestSource.created.desc())
 
     if only_active:
-        query = query.filter(HarvestSource.active==True) \
-
+        query = query.filter(HarvestSource.active == True) \
+ \
     if only_to_run:
-        query = query.filter(HarvestSource.frequency!='MANUAL')
-        query = query.filter(or_(HarvestSource.next_run<=datetime.datetime.utcnow(),
-                                 HarvestSource.next_run==None)
-                            )
+        query = query.filter(HarvestSource.frequency != 'MANUAL')
+        query = query.filter(or_(HarvestSource.next_run <= datetime.datetime.utcnow(),
+                                 HarvestSource.next_run == None)
+                             )
 
     user_obj = User.get(user)
     # Sysadmins will get all sources
@@ -333,7 +333,7 @@ def _get_sources_for_user(context,data_dict):
         publisher_filters = []
         publishers_for_the_user = user_obj.get_groups(u'publisher')
         for publisher_id in [g.id for g in publishers_for_the_user]:
-            publisher_filters.append(HarvestSource.publisher_id==publisher_id)
+            publisher_filters.append(HarvestSource.publisher_id == publisher_id)
 
         if len(publisher_filters):
             query = query.filter(or_(*publisher_filters))
