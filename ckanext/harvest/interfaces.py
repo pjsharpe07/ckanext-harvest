@@ -1,5 +1,6 @@
 from ckan.plugins.interfaces import Interface
 
+
 class IHarvester(Interface):
     '''
     Common harvesting interface

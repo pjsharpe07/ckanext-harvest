@@ -5,6 +5,7 @@ from ckan import plugins as p
 
 log = logging.getLogger(__name__)
 
+
 def harvest_source_delete(context, data_dict):
     '''
     Deletes an existing harvest source
@@ -27,7 +28,6 @@ def harvest_source_delete(context, data_dict):
     p.toolkit.get_action('package_delete')(context, data_dict)
 
     if context.get('clear_source', False):
-
         # We need the id, the name won't work
         package_dict = p.toolkit.get_action('package_show')(context, data_dict)
 

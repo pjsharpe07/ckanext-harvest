@@ -1,24 +1,20 @@
 import logging
-import re
 import uuid
 
-from sqlalchemy.sql import update,and_, bindparam
+import re
+from sqlalchemy.sql import update, bindparam
 from sqlalchemy.exc import InvalidRequestError
-
-from ckan import plugins as p
 from ckan import model
 from ckan.model import Session, Package
 from ckan.logic import ValidationError, NotFound, get_action
-
 from ckan.logic.schema import default_create_package_schema
-from ckan.lib.navl.validators import ignore_missing,ignore
-from ckan.lib.munge import munge_title_to_name,substitute_ascii_equivalents
-
-from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError, \
-                                    HarvestObjectError
-
+from ckan.lib.navl.validators import ignore_missing, ignore
+from ckan.lib.munge import munge_title_to_name, substitute_ascii_equivalents
+from ckanext.harvest.model import HarvestObject, HarvestGatherError, \
+    HarvestObjectError
 from ckan.plugins.core import SingletonPlugin, implements
 from ckanext.harvest.interfaces import IHarvester
+
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +72,7 @@ class HarvesterBase(SingletonPlugin):
             Session.rollback()
             err.save()
         finally:
-            log_message = '{0}, line {1}'.format(message,line) if line else message
+            log_message = '{0}, line {1}'.format(message, line) if line else message
             log.debug(log_message)
 
 
@@ -92,12 +88,12 @@ class HarvesterBase(SingletonPlugin):
             if len(remote_ids):
                 for remote_id in remote_ids:
                     # Create a new HarvestObject for this identifier
-                    obj = HarvestObject(guid = remote_id, job = harvest_job)
+                    obj = HarvestObject(guid=remote_id, job=harvest_job)
                     obj.save()
                     object_ids.append(obj.id)
                 return object_ids
             else:
-               self._save_gather_error('No remote datasets could be identified', harvest_job)
+                self._save_gather_error('No remote datasets could be identified', harvest_job)
         except Exception, e:
             self._save_gather_error('%r' % e.message, harvest_job)
 
@@ -135,7 +131,7 @@ class HarvesterBase(SingletonPlugin):
                 except ValueError:
                     raise ValueError('api_version must be an integer')
 
-                #TODO: use site user when available
+                # TODO: use site user when available
                 user_name = self.config.get('user', u'harvest')
             else:
                 api_version = 2
@@ -161,10 +157,10 @@ class HarvesterBase(SingletonPlugin):
                 existing_package_dict = get_action('package_show')(context, data_dict)
                 # Check modified date
                 if not 'metadata_modified' in package_dict or \
-                   package_dict['metadata_modified'] > existing_package_dict.get('metadata_modified'):
+                                package_dict['metadata_modified'] > existing_package_dict.get('metadata_modified'):
                     log.info('Package with GUID %s exists and needs to be updated' % harvest_object.guid)
                     # Update package
-                    context.update({'id':package_dict['id']})
+                    context.update({'id': package_dict['id']})
                     new_package = get_action('package_update_rest')(context, package_dict)
 
                 else:
@@ -173,10 +169,11 @@ class HarvesterBase(SingletonPlugin):
 
                 # Flag the other objects linking to this package as not current anymore
                 from ckanext.harvest.model import harvest_object_table
+
                 conn = Session.connection()
                 u = update(harvest_object_table) \
-                        .where(harvest_object_table.c.package_id==bindparam('b_package_id')) \
-                        .values(current=False)
+                    .where(harvest_object_table.c.package_id == bindparam('b_package_id')) \
+                    .values(current=False)
                 conn.execute(u, b_package_id=new_package['id'])
 
                 # Flag this as the current harvest object
@@ -208,11 +205,12 @@ class HarvesterBase(SingletonPlugin):
 
             return True
 
-        except ValidationError,e:
+        except ValidationError, e:
             log.exception(e)
-            self._save_object_error('Invalid package with GUID %s: %r'%(harvest_object.guid,e.error_dict),harvest_object,'Import')
+            self._save_object_error('Invalid package with GUID %s: %r' % (harvest_object.guid, e.error_dict),
+                                    harvest_object, 'Import')
         except Exception, e:
             log.exception(e)
-            self._save_object_error('%r'%e,harvest_object,'Import')
+            self._save_object_error('%r' % e, harvest_object, 'Import')
 
         return None

@@ -3,15 +3,14 @@ from ckan.logic.validators import (package_id_exists,
                                    name_validator,
                                    owner_org_validator,
                                    package_name_validator,
-                                   ignore_not_package_admin,
-                                   )
+)
 from ckan.logic.converters import convert_to_extras, convert_from_extras
 
 from ckan.lib.navl.validators import (ignore_missing,
                                       not_empty,
                                       ignore,
                                       if_empty_same_as,
-                                      )
+)
 
 from ckanext.harvest.logic.validators import (harvest_source_url_validator,
                                               harvest_source_type_exists,
@@ -20,10 +19,10 @@ from ckanext.harvest.logic.validators import (harvest_source_url_validator,
                                               harvest_source_frequency_exists,
                                               dataset_type_exists,
                                               harvest_source_convert_from_config,
-                                              )
+)
+
 
 def harvest_source_schema():
-
     schema = {
         'id': [ignore_missing, unicode, package_id_exists],
         'type': [dataset_type_exists, unicode],
@@ -47,8 +46,8 @@ def harvest_source_schema():
 
     return schema
 
-def harvest_source_create_package_schema():
 
+def harvest_source_create_package_schema():
     schema = harvest_source_schema()
     schema['__extras'] = [harvest_source_extra_validator]
     schema['save'] = [ignore]
@@ -56,15 +55,15 @@ def harvest_source_create_package_schema():
 
     return schema
 
-def harvest_source_update_package_schema():
 
+def harvest_source_update_package_schema():
     schema = harvest_source_create_package_schema()
     schema['owner_org'] = [ignore_missing, owner_org_validator, unicode]
 
     return schema
 
-def harvest_source_show_package_schema():
 
+def harvest_source_show_package_schema():
     schema = harvest_source_schema()
     schema.update({
         'source_type': [convert_from_extras, ignore_missing],

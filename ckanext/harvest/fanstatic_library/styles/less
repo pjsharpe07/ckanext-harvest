@@ -9,25 +9,25 @@ var path = require('path'),
     lastArg = process.argv.slice().pop();
 
 function now() {
-  return new Date().toISOString().replace('T', ' ').substr(0, 19);
+    return new Date().toISOString().replace('T', ' ').substr(0, 19);
 }
 
 function compile(event, filename) {
-  var start = Date.now();
+    var start = Date.now();
 
-  exec('`npm bin`/lessc ' + __dirname + '/harvest.less > ' + __dirname + '/harvest.css', function (err, stdout, stderr) {
-    var duration = Date.now() - start;
+    exec('`npm bin`/lessc ' + __dirname + '/harvest.less > ' + __dirname + '/harvest.css', function (err, stdout, stderr) {
+        var duration = Date.now() - start;
 
-    if (err) {
-      console.log('An error occurred running the less command:');
-      console.log(err.message);
-    }
-    else if (stderr || stdout) {
-      console.log(stdout, stderr);
-    } else {
-      console.log('[%s] recompiled in %sms', now(), duration);
-    }
-  });
+        if (err) {
+            console.log('An error occurred running the less command:');
+            console.log(err.message);
+        }
+        else if (stderr || stdout) {
+            console.log(stdout, stderr);
+        } else {
+            console.log('[%s] recompiled in %sms', now(), duration);
+        }
+    });
 }
 
 nodeWatch.add(watch).onChange(compile);
