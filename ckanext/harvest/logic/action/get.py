@@ -333,8 +333,7 @@ def _get_sources_for_user(context,data_dict):
                 .order_by(HarvestSource.created.desc())
 
     if only_active:
-        query = query.filter(HarvestSource.active==True) \
-
+        query = query.filter(HarvestSource.active == True)
     if only_to_run:
         query = query.filter(HarvestSource.frequency!='MANUAL')
         query = query.filter(or_(HarvestSource.next_run<=datetime.datetime.utcnow(),
