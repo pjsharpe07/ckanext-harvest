@@ -97,10 +97,9 @@ def resubmit_jobs():
     for key in harvest_jobs_pending:
         date_of_key = datetime.datetime.strptime(redis.get(key),
                                                  "%Y-%m-%d %H:%M:%S.%f")
-        if (datetime.datetime.now() - date_of_key).seconds > 7200:  # 3 hours for a gather
-            redis.rpush('harvest_job_id',
-                        json.dumps({'harvest_job_id': key.split(':')[-1]})
-                        )
+        if (datetime.datetime.now() - date_of_key).seconds > 21600:  # 3 hours for a gather
+            log.debug('resubmit disabled for: %s' % key.split(':')[-1])
+            log.debug('date_of_key: %s' % date_of_key)
             redis.delete(key)
 
 
