@@ -463,6 +463,8 @@ def migrate_v3_create_datasets(source_ids=None):
         if 'package' in context:
             del context['package']
 
+        context.pop('__auth_audit', None)
+
         # Check if package already exists
 
         try:
