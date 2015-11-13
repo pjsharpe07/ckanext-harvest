@@ -432,7 +432,7 @@ def harvest_jobs_run(context, data_dict):
                         if(all_updates != ''):
                             msg += 'Summary\n\n' + all_updates + '\n\n'
 
-                        log.info('message in email:',all_updates)
+                        # log.info('message in email:',all_updates)
                         sql = '''select message from harvest_gather_error where harvest_job_id = :job_id; '''
                         q = model.Session.execute(sql, {'job_id' : job_obj.id})
                         for row in q:
@@ -492,19 +492,18 @@ def harvest_jobs_run(context, data_dict):
                                 except Exception:
                                     pass
 
-                # Reindex the harvest source dataset so it has the latest
-                # status
-                # get_action('harvest_source_reindex')(context,
-                #     {'id': job_obj.source.id})
-                if 'extras_as_string' in context:
-                    del context['extras_as_string']
-                context.update({'validate': False, 'ignore_auth': True})
-                package_dict = logic.get_action('package_show')(context,
-                                                                {'id': job_obj.source.id})
+                    # Reindex the harvest source dataset so it has the latest
+                    # status
+                    # get_action('harvest_source_reindex')(context,
+                    #     {'id': job_obj.source.id})
+                    if 'extras_as_string' in context:
+                        del context['extras_as_string']
+                    context.update({'validate': False, 'ignore_auth': True})
+                    package_dict = logic.get_action('package_show')(context,
+                                                                    {'id': job_obj.source.id})
 
-                if package_dict:
-                    package_index.index_package(package_dict)
-
+                    if package_dict:
+                        package_index.index_package(package_dict)
 
     # resubmit old redis tasks
     resubmit_jobs()
@@ -584,3 +583,4 @@ def harvest_source_reindex(context, data_dict):
     package_index.index_package(new_dict, defer_commit=defer_commit)
 
     return True
+
