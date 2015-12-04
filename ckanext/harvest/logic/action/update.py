@@ -343,7 +343,7 @@ def harvest_jobs_run(context, data_dict):
                         .filter(HarvestObject.import_finished != None) \
                         .order_by(HarvestObject.import_finished.desc()) \
                         .first()
-                    if last_object:
+                    if last_object and last_object.import_finished:
                         job_obj.finished = last_object.import_finished
                     else:
                         job_obj.finished = datetime.datetime.utcnow()
