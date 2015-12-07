@@ -669,9 +669,6 @@ def harvest_jobs_run(context, data_dict):
                     if package_dict:
                         package_index.index_package(package_dict)
 
-    # resubmit old redis tasks
-    resubmit_jobs()
-
     # Check if there are pending harvest jobs
     jobs = harvest_job_list(context, {'source_id': source_id, 'status': u'New'})
     if len(jobs) == 0:
