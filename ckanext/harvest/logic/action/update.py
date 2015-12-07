@@ -302,6 +302,7 @@ def harvest_jobs_run(context, data_dict):
                     .order_by(HarvestObject.import_finished.desc())
 
                 if objects.count() == 0:
+                    msg = '' # message to be emailed for fixed packages
                     job_obj = HarvestJob.get(job['id'])
 
                     # look for packages with no current harvest objects
@@ -335,8 +336,11 @@ def harvest_jobs_run(context, data_dict):
                     for row in results:
                         pkgs_no_current.add(row['package_id'])
                     if len(pkgs_no_current) > 0:
-                        log.info('%s packages to be relinked for source %s' % \
-                                (len(pkgs_no_current), job_obj.source_id))
+                        log_message = '%s packages to be relinked for ' \
+                                'source %s' % (len(pkgs_no_current),
+                                job_obj.source_id)
+                        msg += log_message + '\n'
+                        log.info(log_message)
 
                     # set last complete harvest object to be current
                     sql = '''
@@ -362,9 +366,13 @@ def harvest_jobs_run(context, data_dict):
                         model.Session.commit()
                         if result:
                             search.rebuild(id)
-                            log.info('%s relinked' % id)
+                            log_message = '%s relinked' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
                         else:
-                            log.info('%s has no valid harvest object.' % id)
+                            log_message = '%s has no valid harvest object.' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
 
                     # look for packages with no harvest object and remove them
                     pkgs_no_harvest_object = set()
@@ -396,19 +404,40 @@ def harvest_jobs_run(context, data_dict):
                     for row in results:
                         pkgs_no_harvest_object.add(row['id'])
                     if len(pkgs_no_harvest_object) > 0:
-                        log.info('%s packages to be removed for source %s' % (
+                        log_message = '%s packages to be removed for source %s' % (
                                 len(pkgs_no_harvest_object),
                                 job_obj.source_id
-                        ))
+                        )
+                        msg += log_message + '\n'
+                        log.info(log_message)
 
                     for id in pkgs_no_harvest_object:
                         try:
                             logic.get_action('package_delete')(context,
                                     {"id": id})
                         except Exception, e:
-                            log.info('Error deleting %s' % id)
+                            log_message = 'Error deleting %s' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
                         else:
-                            log.info('%s removed' % id)
+                            log_message = '%s removed' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
+
+                    # email a list of fixed packages
+                    if msg:
+                        email_address = config.get('email_to')
+                        email = {'recipient_name': email_address,
+                                 'recipient_email': email_address,
+                                 'subject': 'Packages fixed ' + \
+                                        str(datetime.datetime.now()),
+                                 'body': msg,
+                                 }
+                        try:
+                            mailer.mail_recipient(**email)
+                        except Exception, e:
+                            log.error('Error: %s; email: %s' % (e, email))
+
 
                     # finally we can call this job finished
                     job_obj.status = u'Finished'
