@@ -459,7 +459,7 @@ def harvest_jobs_run(context, data_dict):
                             # emails from org admin
                             sql = '''select email, name from public.user u
                                   join member m on m.table_id = u.id
-                                  where capacity = 'admin' and state = 'active' and group_id = :group_id;'''
+                                  where m.capacity = 'admin' and m.state = 'active' and m.group_id = :group_id;'''
                             q1 = model.Session.execute(sql, {'group_id': row['group_id']})
                             for row1 in q1:
                                 _email = str(row1['email']).lower()
