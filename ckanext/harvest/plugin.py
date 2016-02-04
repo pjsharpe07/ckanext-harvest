@@ -100,7 +100,7 @@ class Harvest(p.SingletonPlugin, DefaultDatasetForm):
             # If the harvest extras are there, remove them. This can happen eg
             # when calling package_update or resource_update, which call
             # package_show
-            if data_dict.get('extras'):
+            if context.get('for_edit') and 'extras' in  data_dict:
                 data_dict['extras'][:] = [e for e in data_dict.get('extras', [])
                                           if not e['key']
                                           in ('harvest_object_id', 'harvest_source_id', 'harvest_source_title',)]
