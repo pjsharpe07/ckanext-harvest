@@ -1,3 +1,4 @@
+import json
 import logging
 from sqlalchemy import or_
 from ckan.model import User
@@ -36,10 +37,13 @@ def harvest_source_show(context,data_dict):
 
 
     source_dict = logic.get_action('package_show')(context, data_dict)
+    harvest_source = HarvestSource.get(source_dict['id'])
 
     # For compatibility with old code, add the active field
     # based on the package state
     source_dict['active'] = (source_dict['state'] == 'active')
+
+    source_dict['extras'].append({'key':'config', 'value':harvest_source.config})
 
     return source_dict
 
