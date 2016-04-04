@@ -72,15 +72,16 @@ def setup():
                 migrate_v3()
 
             # Check if this instance has harvest source datasets
-            source_ids = Session.query(HarvestSource.id).filter_by(active=True).all()
-            source_package_ids = Session.query(model.Package.id).filter_by(type=u'harvest', state='active').all()
-            sources_to_migrate = set(source_ids) - set(source_package_ids)
-            if sources_to_migrate:
-                log.debug('Delaying migrating harvest source datasets for %i existing sources', len(sources_to_migrate))
-                # TODO: this v3 migrate needs more work.
-                # leave the problemetic harvest sources untouched for now.
-                # sources_to_migrate = [s[0] for s in sources_to_migrate]
-                # migrate_v3_create_datasets(sources_to_migrate)
+            ## disable migrate check for now. takes too much time.
+            # source_ids = Session.query(HarvestSource.id).filter_by(active=True).all()
+            # source_package_ids = Session.query(model.Package.id).filter_by(type=u'harvest', state='active').all()
+            # sources_to_migrate = set(source_ids) - set(source_package_ids)
+            # if sources_to_migrate:
+            #     log.debug('Delaying migrating harvest source datasets for %i existing sources', len(sources_to_migrate))
+            #     # TODO: this v3 migrate needs more work.
+            #     # leave the problemetic harvest sources untouched for now.
+            #     # sources_to_migrate = [s[0] for s in sources_to_migrate]
+            #     # migrate_v3_create_datasets(sources_to_migrate)
 
     else:
         log.debug('Harvest table creation deferred')
