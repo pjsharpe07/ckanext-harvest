@@ -38,6 +38,7 @@ harvest_object_table = None
 harvest_gather_error_table = None
 harvest_object_error_table = None
 harvest_object_extra_table = None
+harvest_system_info_table = None
 
 def setup():
 
@@ -56,6 +57,7 @@ def setup():
             harvest_gather_error_table.create()
             harvest_object_error_table.create()
             harvest_object_extra_table.create()
+            harvest_system_info_table.create()
 
             log.debug('Harvest tables created')
         else:
@@ -156,6 +158,9 @@ class HarvestObjectError(HarvestDomainObject):
     '''
     pass
 
+class HarvestSystemInfo(HarvestDomainObject):
+    '''Some system info for harvest'''
+
 def harvest_object_before_insert_listener(mapper,connection,target):
     '''
         For compatibility with old harvesters, check if the source id has
@@ -176,6 +181,7 @@ def define_harvester_tables():
     global harvest_object_extra_table
     global harvest_gather_error_table
     global harvest_object_error_table
+    global harvest_system_info_table
 
     harvest_source_table = Table('harvest_source', metadata,
         Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
@@ -245,6 +251,13 @@ def define_harvester_tables():
         Column('line', types.Integer),
         Column('created', types.DateTime, default=datetime.datetime.utcnow),
     )
+
+    # New table
+    harvest_system_info_table = Table('harvest_system_info', metadata,
+                                       Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+                                       Column('key', types.UnicodeText),
+                                       Column('value', types.UnicodeText),
+                                       )
 
     mapper(
         HarvestSource,
@@ -318,6 +331,11 @@ def define_harvester_tables():
                 backref=backref('extras', cascade='all,delete-orphan')
             ),
         },
+    )
+
+    mapper(
+        HarvestSystemInfo,
+        harvest_system_info_table,
     )
 
     event.listen(HarvestObject, 'before_insert', harvest_object_before_insert_listener)

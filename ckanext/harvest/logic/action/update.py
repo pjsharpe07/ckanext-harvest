@@ -5,7 +5,7 @@ import json
 
 from pylons import config
 from paste.deploy.converters import asbool
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, exc
 from ckan.lib.search.index import PackageSearchIndex
 from ckan.plugins import PluginImplementations
 from ckan.logic import get_action
@@ -17,7 +17,7 @@ from ckan.plugins import toolkit
 from ckan.logic import NotFound, check_access
 from ckanext.harvest.plugin import DATASET_TYPE_NAME
 from ckanext.harvest.queue import get_gather_publisher, resubmit_jobs
-from ckanext.harvest.model import HarvestSource, HarvestJob, HarvestObject
+from ckanext.harvest.model import HarvestSource, HarvestJob, HarvestObject, HarvestSystemInfo
 from ckanext.harvest.logic import HarvestJobExists
 from ckanext.harvest.logic.action.get import harvest_source_show, harvest_job_list, _get_sources_for_user
 import ckan.lib.mailer as mailer
@@ -307,6 +307,28 @@ def _make_scheduled_jobs(context, data_dict):
         source.next_run = _caluclate_next_run(source.frequency)
         source.save()
 
+def set_harvest_system_info(context, key, value):
+    ''' save data in the harvest_system_info table '''
+
+    model = context['model']
+
+    obj = None
+    try:
+        obj = model.Session.query(HarvestSystemInfo).filter_by(key=key).first()
+    except exc.ProgrammingError:
+        log.debug('No HarvestSystemInfo table. {0} skipped.'.format(key))
+        model.Session.rollback()
+        return
+
+    if obj:
+        obj.value = unicode(value)
+    else:
+        obj = HarvestSystemInfo()
+        obj.key = key
+        obj.value = value
+    model.Session.add(obj)
+    model.Session.commit()
+
 
 def harvest_jobs_run(context, data_dict):
     log.info('Harvest job run: %r', data_dict)
@@ -321,6 +343,8 @@ def harvest_jobs_run(context, data_dict):
         _make_scheduled_jobs(context, data_dict)
 
     context['return_objects'] = False
+
+    set_harvest_system_info(context, 'last_run_time', datetime.datetime.utcnow() )
 
     # Flag finished jobs as such
     jobs = harvest_job_list(context, {'source_id': source_id, 'status': u'Running'})
@@ -529,6 +553,7 @@ def harvest_jobs_run(context, data_dict):
             sent_jobs.append(job)
 
     publisher.close()
+
     return sent_jobs
 
 
