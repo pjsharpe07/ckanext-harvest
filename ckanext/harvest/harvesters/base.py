@@ -72,7 +72,12 @@ class HarvesterBase(SingletonPlugin):
             Session.rollback()
             err.save()
         finally:
-            log_message = '{0}, line {1}'.format(message, line) if line else message
+            try:
+                log_message = '{0}, line {1}'.format(message,
+                        line) if line else message
+            except UnicodeEncodeError:
+                log_message = '{0}, line {1}'.format(message.encode('utf-8'),
+                        line) if line else message.encode('utf-8')
             log.debug(log_message)
 
 
