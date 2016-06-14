@@ -14,7 +14,7 @@
 {% block breadcrumb_content %}
   {% if source.organization %}
     {% set org = source.organization %}
-    <li>{{ h.nav_named_link(_('Organizations'), 'organizations_index') }}</li>
+    {% snippet 'snippets/organization_breadcrumb_item.html' %}
     <li>{{ h.nav_named_link(org.title or org.name|truncate(10), 'organization_read', id=org.name) }}</li>
     <li>{{ h.nav_named_link(_('Harvest Sources'), '{0}_search'.format(c.dataset_type)) }}</li>
     <li{{ self.breadcrumb_content_root_selected() }}>{{ h.nav_named_link(c.harvest_source.title|truncate(10), '{0}_read'.format(c.dataset_type), id=c.harvest_source.name) }}</li>
