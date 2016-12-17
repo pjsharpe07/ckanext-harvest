@@ -6,6 +6,7 @@ import json
 from pylons import config
 from paste.deploy.converters import asbool
 from sqlalchemy import and_, or_, exc
+import ckan.lib.search as search
 from ckan.lib.search.index import PackageSearchIndex
 from ckan.plugins import PluginImplementations
 from ckan.logic import get_action
@@ -354,14 +355,153 @@ def harvest_jobs_run(context, data_dict):
             if job['gather_finished']:
                 objects = session.query(HarvestObject.id) \
                     .filter(HarvestObject.harvest_job_id == job['id']) \
-                    .filter(and_((HarvestObject.state != u'COMPLETE'),
-                                 (HarvestObject.state != u'ERROR'))) \
+                    .filter(and_(
+                            (HarvestObject.state != u'COMPLETE'),
+                            (HarvestObject.state != u'ERROR'),
+                            (HarvestObject.state != u'STUCK')
+                            )) \
                     .order_by(HarvestObject.import_finished.desc())
 
                 if objects.count() == 0:
+                    msg = '' # message to be emailed for fixed packages
                     job_obj = HarvestJob.get(job['id'])
-                    job_obj.status = u'Finished'
 
+                    # look for packages with no current harvest objects
+                    # and relink them by marking last complete harvest object
+                    # current
+                    pkgs_no_current = set()
+                    sql = '''
+                        WITH temp_ho AS (
+                          SELECT DISTINCT package_id
+                                  FROM harvest_object
+                                  WHERE current
+                        )
+                        SELECT DISTINCT harvest_object.package_id
+                        FROM harvest_object
+                        LEFT JOIN temp_ho
+                        ON harvest_object.package_id = temp_ho.package_id
+                        JOIN package
+                        ON harvest_object.package_id = package.id
+                        WHERE
+                            package.state = 'active'
+                        AND
+                            temp_ho.package_id IS NULL
+                        AND
+                            harvest_object.state = 'COMPLETE'
+                        AND
+                            harvest_object.harvest_source_id = :harvest_source_id
+                        '''
+                    results = model.Session.execute(sql,
+                            {'harvest_source_id': job_obj.source_id})
+
+                    for row in results:
+                        pkgs_no_current.add(row['package_id'])
+                    if len(pkgs_no_current) > 0:
+                        log_message = '%s packages to be relinked for ' \
+                                'source %s' % (len(pkgs_no_current),
+                                job_obj.source_id)
+                        msg += log_message + '\n'
+                        log.info(log_message)
+
+                    # set last complete harvest object to be current
+                    sql = '''
+                        UPDATE harvest_object
+                        SET current = 't'
+                        WHERE
+                            package_id = :id
+                        AND
+                            state = 'COMPLETE'
+                        AND
+                            import_finished = (
+                                SELECT MAX(import_finished)
+                                FROM harvest_object
+                                WHERE
+                                    state = 'COMPLETE'
+                                AND
+                                    package_id = :id
+                            )
+                        RETURNING 1
+                    '''
+                    for id in pkgs_no_current:
+                        result = model.Session.execute(sql, {'id': id}).fetchall()
+                        model.Session.commit()
+                        if result:
+                            search.rebuild(id)
+                            log_message = '%s relinked' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
+                        else:
+                            log_message = '%s has no valid harvest object.' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
+
+                    # look for packages with no harvest object and remove them
+                    pkgs_no_harvest_object = set()
+                    source_dataset = model.Package.get(job_obj.source_id)
+                    owner_org = source_dataset.owner_org
+                    sql = '''
+                        SELECT package.id
+                        FROM package
+                        LEFT JOIN harvest_object
+                        ON package.id = harvest_object.package_id
+                        LEFT JOIN package_extra
+                        ON package.id = package_extra.package_id
+                        AND package_extra.key = 'metadata-source'
+                        AND package_extra.value = 'dms'
+                        WHERE
+                            harvest_object.package_id is null
+                        AND
+                            package_extra.package_id is null
+                        AND
+                            package.type='dataset'
+                        AND
+                            package.state='active'
+                        AND
+                            package.owner_org=:owner_org
+                    '''
+                    results = model.Session.execute(sql,
+                            {'owner_org': owner_org})
+
+                    for row in results:
+                        pkgs_no_harvest_object.add(row['id'])
+                    if len(pkgs_no_harvest_object) > 0:
+                        log_message = '%s packages to be removed for source %s' % (
+                                len(pkgs_no_harvest_object),
+                                job_obj.source_id
+                        )
+                        msg += log_message + '\n'
+                        log.info(log_message)
+
+                    for id in pkgs_no_harvest_object:
+                        try:
+                            logic.get_action('package_delete')(context,
+                                    {"id": id})
+                        except Exception, e:
+                            log_message = 'Error deleting %s' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
+                        else:
+                            log_message = '%s removed' % id
+                            msg += log_message + '\n'
+                            log.info(log_message)
+
+                    # email a list of fixed packages
+                    if msg:
+                        email_address = config.get('email_to')
+                        email = {'recipient_name': email_address,
+                                 'recipient_email': email_address,
+                                 'subject': 'Packages fixed ' + \
+                                        str(datetime.datetime.now()),
+                                 'body': msg,
+                                 }
+                        try:
+                            mailer.mail_recipient(**email)
+                        except Exception, e:
+                            log.error('Error: %s; email: %s' % (e, email))
+
+
+                    # finally we can call this job finished
+                    job_obj.status = u'Finished'
                     last_object = session.query(HarvestObject) \
                         .filter(HarvestObject.harvest_job_id == job['id']) \
                         .filter(HarvestObject.import_finished != None) \
@@ -528,9 +668,6 @@ def harvest_jobs_run(context, data_dict):
 
                     if package_dict:
                         package_index.index_package(package_dict)
-
-    # resubmit old redis tasks
-    resubmit_jobs()
 
     # Check if there are pending harvest jobs
     jobs = harvest_job_list(context, {'source_id': source_id, 'status': u'New'})
