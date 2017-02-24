@@ -10,7 +10,7 @@ ckan.module('harvest-type-change', function (jQuery, _) {
       if (this.el.attr("checked") === "checked"){
         self.sandbox.publish('harvest-source-type-select', harvest_source_type);
       }
-    },
+    }
   }
 })
 
@@ -34,6 +34,6 @@ ckan.module('harvest-extra-form-change', function (jQuery, _) {
           }
         }
       })
-    },
+    }
   }
 })
