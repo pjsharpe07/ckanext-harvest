@@ -646,8 +646,8 @@ def harvest_jobs_run(context, data_dict):
                                         all_emails[org_email.lower()] = org_email.lower()
 
                             for _email, _name in all_emails.iteritems():
-                                email = {'recipient_name': _email,
-                                         'recipient_email': _name,
+                                email = {'recipient_name': _name,
+                                         'recipient_email': _email,
                                          'subject': 'Data.gov Latest Harvest Job Report',
                                          'body': msg}
 
