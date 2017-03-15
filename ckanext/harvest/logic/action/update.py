@@ -618,18 +618,17 @@ def harvest_jobs_run(context, data_dict):
                         q = model.Session.execute(sql, {'source_id': job_obj.source_id})
 
                         for row in q:
-                            all_emails = {}
+                            all_emails = []
 
                             # emails from org admin
-                            sql = '''select email, name from public.user u
+                            sql = '''select email from public.user u
                                   join member m on m.table_id = u.id
                                   where m.capacity = 'admin' and m.state = 'active' and u.state = 'active' and m.group_id = :group_id;'''
                             q1 = model.Session.execute(sql, {'group_id': row['group_id']})
                             for row1 in q1:
                                 _email = str(row1['email']).lower()
-                                _name = str(row1['name'])
                                 if _email:
-                                    all_emails[_email] = _name
+                                    all_emails.append(_email)
 
                             # emails from org email_list
                             sql = '''SELECT value FROM group_extra
@@ -643,16 +642,16 @@ def harvest_jobs_run(context, data_dict):
                                 if org_emails:
                                     org_email_list = org_emails.replace(';', ' ').replace(',', ' ').split()
                                     for org_email in org_email_list:
-                                        all_emails[org_email.lower()] = org_email.lower()
+                                        all_emails.append(org_email.lower())
 
-                            for _email, _name in all_emails.iteritems():
-                                email = {'recipient_name': _name,
-                                         'recipient_email': _email,
-                                         'subject': 'Data.gov Latest Harvest Job Report',
-                                         'body': msg}
-
+                            if all_emails:
+                                email = {
+                                    'recipient_emails': all_emails,
+                                     'subject': 'Data.gov Latest Harvest Job Report',
+                                     'body': msg
+                                }
                                 try:
-                                    mailer.mail_recipient(**email)
+                                    mailer.bcc_recipients(**email)
                                 except Exception:
                                     pass
 
