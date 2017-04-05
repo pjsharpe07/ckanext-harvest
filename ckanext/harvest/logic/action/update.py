@@ -613,7 +613,8 @@ def harvest_jobs_run(context, data_dict):
 
                         msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
                         msg += '\n--\nIf you have an account with us, you can view the detailed job report at the following url. You will need to log in first using link https://catalog.data.gov/user/login, then go to this url:'
-                        msg += '\n--\nhttps://admin-catalog.data.gov/harvest/job/943560f1-f854-4120-aa33-3f3136d1f39b'
+                        msg += '\n--\n https://admin-' + job_url
+
                         # get recipients
                         sql = '''select group_id from member where table_id = :source_id;'''
                         q = model.Session.execute(sql, {'source_id': job_obj.source_id})
