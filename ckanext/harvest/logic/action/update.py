@@ -542,7 +542,7 @@ def harvest_jobs_run(context, data_dict):
                             harvest_name = str(row['name'])
 
                         job_url = config.get('ckan.site_url') + '/harvest/' + harvest_name + '/job/' + job_obj.id
-                        # (' + job_url + ')
+
                         msg = 'Here is the summary of latest harvest job set-up for your organization in Data.gov\n\n'
 
                         sql = '''select g.title as org, s.title as job_title from member m
