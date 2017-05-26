@@ -611,9 +611,9 @@ def harvest_jobs_run(context, data_dict):
                         if (job_error != ''):
                             msg += 'Job Errors\n' + job_error + '\n\n'
 
-                        msg += '\n--\nYou are receiving this email because you are currently set-up as Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
-                        msg += '\n\nIf you have an account with us, you can view the detailed job report at the following url. You will need to log in first using link https://catalog.data.gov/user/login, then go to this url:'
-                        msg += '\nhttps://admin-' + job_url
+                        msg += '\n--\nYou are receiving this email because you are currently the Administrator for your organization in Data.gov. Please do not reply to this email as it was sent from a non-monitored address. Please feel free to contact us at www.data.gov/contact for any questions or feedback.'
+                        msg += '\n\nIf you have an admin/editor account in Data.gov catalog, you can view the detailed job report at the following url. You will need to log in first using link https://catalog.data.gov/user/login, then go to this url:'
+                        msg += '\n\nhttps://admin-' + job_url
 
                         # get recipients
                         sql = '''select group_id from member where table_id = :source_id;'''
@@ -649,7 +649,7 @@ def harvest_jobs_run(context, data_dict):
                             if all_emails:
                                 email = {
                                     'recipient_emails': all_emails,
-                                     'subject': 'Data.gov Latest Harvest Job Report',
+                                     'subject': 'Data.gov Latest Harvest Job Report' + harvest_name,
                                      'body': msg
                                 }
                                 try:
