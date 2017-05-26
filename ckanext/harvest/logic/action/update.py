@@ -649,7 +649,7 @@ def harvest_jobs_run(context, data_dict):
                             if all_emails:
                                 email = {
                                     'recipient_emails': all_emails,
-                                     'subject': 'Data.gov Latest Harvest Job Report' + harvest_name,
+                                     'subject': 'Data.gov Latest Harvest Job Report for ' + harvest_name.capitalize(),
                                      'body': msg
                                 }
                                 try:
