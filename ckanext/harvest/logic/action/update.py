@@ -142,7 +142,17 @@ def harvest_source_clear(context, data_dict):
     delete from harvest_gather_error where harvest_job_id in (select id from harvest_job where source_id = '{harvest_source_id}');
     delete from harvest_job where source_id = '{harvest_source_id}';
     delete from package_role where package_id in (select id from package where state = 'to_delete' );
-    delete from user_object_role where id not in (select user_object_role_id from package_role) and context = 'Package';
+
+    DELETE FROM user_object_role
+    USING user_object_role u
+    LEFT JOIN package_role p
+    ON u.id = p.user_object_role_id
+    WHERE
+    p.user_object_role_id IS NULL
+    AND u.context = 'Package'
+    AND user_object_role.id = u.id
+    ;
+
     delete from package_tag_revision where package_id in (select id from package where state = 'to_delete');
     delete from member_revision where table_id in (select id from package where state = 'to_delete');
     delete from package_extra_revision where package_id in (select id from package where state = 'to_delete');
