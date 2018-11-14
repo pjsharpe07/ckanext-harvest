@@ -1,6 +1,7 @@
 import logging
 import re
 import uuid
+import random
 
 from sqlalchemy.sql import update,and_, bindparam
 from sqlalchemy.exc import InvalidRequestError
@@ -17,6 +18,7 @@ from ckan.lib.munge import munge_title_to_name,substitute_ascii_equivalents
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError, \
                                     HarvestObjectError
+from sqlalchemy.exc import IntegrityError
 
 from ckan.plugins.core import SingletonPlugin, implements
 from ckanext.harvest.interfaces import IHarvester
@@ -151,6 +153,16 @@ class HarvesterBase(SingletonPlugin):
             self._save_gather_error('%r' % e.message, harvest_job)
 
 
+    def _remove_package(self, package_dict):
+        '''
+        Removes the given package id, when access denied for a given ID is returned
+        '''
+        context = {
+            'model': model,
+            'session': Session,
+        }
+        get_action('package_delete')(context, package_dict)
+
     def _create_or_update_package(self, package_dict, harvest_object):
         '''
         Creates a new package or updates an exisiting one according to the
@@ -272,6 +284,23 @@ class HarvesterBase(SingletonPlugin):
         except ValidationError,e:
             log.exception(e)
             self._save_object_error('Invalid package with GUID %s: %r'%(harvest_object.guid,e.error_dict),harvest_object,'Import')
+        except IntegrityError,e:
+            try:
+                log.debug('Attempting adding unique Identifier to name %s' % package_dict['name'])
+                model.Session.rollback()
+                random_number = random.SystemRandom().random() * 10000
+                package_dict['name'] = '%s-%d' % (package_dict['name'], random_number)
+                new_package = get_action('package_create_rest')(context, package_dict)
+                harvest_object.current = True
+                harvest_object.package_id = package_dict['id']
+                harvest_object.add()
+                Session.commit()
+            except Exception, e:
+                log.exception(e)
+                self._save_object_error('%r'%e,harvest_object,'Import')
+            else:
+                log.debug('unique identifier to name %s successful' % package_dict['name'])
+                return True
         except Exception, e:
             log.exception(e)
             self._save_object_error('%r'%e,harvest_object,'Import')
