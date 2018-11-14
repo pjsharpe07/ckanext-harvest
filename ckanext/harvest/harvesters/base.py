@@ -1,7 +1,6 @@
 import logging
 import re
 import uuid
-import random
 
 from sqlalchemy.sql import update,and_, bindparam
 from sqlalchemy.exc import InvalidRequestError
@@ -288,8 +287,7 @@ class HarvesterBase(SingletonPlugin):
             try:
                 log.debug('Attempting adding unique Identifier to name %s' % package_dict['name'])
                 model.Session.rollback()
-                random_number = random.SystemRandom().random() * 10000
-                package_dict['name'] = '%s-%d' % (package_dict['name'], random_number)
+                package_dict['name'] = '%s-%d' % (package_dict['name'], str(uuid.uuid4())[:5])
                 new_package = get_action('package_create_rest')(context, package_dict)
                 harvest_object.current = True
                 harvest_object.package_id = package_dict['id']

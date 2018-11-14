@@ -33,12 +33,12 @@ class CKANHarvester(HarvesterBase):
 
     def _get_rest_api_offset(self):
         return '/api/2/rest'
-    
+
     def _get_content(self, url):
         http_request = urllib2.Request(
             url = url,
         )
-	
+
 	http_request.add_header("User-Agent", "doi_harvest")
 
         api_key = self.config.get('api_key',None)
@@ -49,10 +49,10 @@ class CKANHarvester(HarvesterBase):
             http_response = urllib2.urlopen(http_request)
         except urllib2.URLError, e:
             if e.code == 403:
-                raise ContentNotFoundError('ID has been removed: %s' % url)
+                raise ContentNotFoundError('Package is no longer publicly available, HTTP 403 response for %s' % url)
             else:
                 raise ContentFetchError(
-                    'Could not fetch url: %s, error: %s' % 
+                    'Could not fetch url: %s, error: %s' %
                     (url, str(e))
                 )
         return http_response.read()
@@ -256,6 +256,7 @@ class CKANHarvester(HarvesterBase):
             # Remove package, as it no longer exists in the source:
             self._remove_package({"id": harvest_object.guid})
             harvest_object.report_status = 'deleted'
+            harvest_object.save()
             return True
         except ContentFetchError,e:
             self._save_object_error('Unable to get content for package: %s: %r' % \
@@ -268,11 +269,11 @@ class CKANHarvester(HarvesterBase):
 
     def import_stage(self,harvest_object):
         log.debug('In CKANHarvester import_stage: %s' % harvest_object.id)
-        
+
         if(harvest_object.report_status == 'deleted'):
             log.debug('Dataset removed as expected, ignoring import for %s' % harvest_object.id)
             return True
-        
+
         context = {'model': model, 'session': Session, 'user': self._get_user_name()}
         if not harvest_object:
             log.error('No harvest object received')
@@ -303,9 +304,9 @@ class CKANHarvester(HarvesterBase):
                         extra_key['value'].extend([t for t in default_tags if t not in package_dict['tags']])
 
             remote_groups = self.config.get('remote_groups', None)
-            
+
             log.debug('Default tags setup for: %s' % harvest_object.id)
-            
+
             if not remote_groups in ('only_local', 'create'):
                 # Ignore remote groups
                 package_dict.pop('groups', None)
@@ -349,7 +350,7 @@ class CKANHarvester(HarvesterBase):
             # Local harvest source organization
             source_dataset = get_action('package_show')(context, {'id': harvest_object.source.id})
             local_org = source_dataset.get('owner_org')
-            
+
             log.debug('Have harvest source info for: %s' % harvest_object.id)
 
             remote_orgs = self.config.get('remote_orgs', None)
@@ -397,8 +398,8 @@ class CKANHarvester(HarvesterBase):
                 if not 'groups' in package_dict:
                     package_dict['groups'] = []
                 package_dict['groups'].extend([g for g in default_groups if g not in package_dict['groups']])
-	   
-	    # Download full metadata link if applicable 
+
+	    # Download full metadata link if applicable
             harvest_source_id = None
             for key in package_dict['extras']:
                 if key['key'] == 'harvest_object_id':
@@ -409,7 +410,7 @@ class CKANHarvester(HarvesterBase):
                 full_metadata = self._get_content(url)
                 harvest_object.content = full_metadata
                 harvest_object.save()
-                
+
             log.debug('Got full metadata content for: %s' % harvest_object.id)
             # Find any extras whose values are not strings and try to convert
             # them to strings, as non-string extras are not allowed anymore in
@@ -433,7 +434,7 @@ class CKANHarvester(HarvesterBase):
             for key in package_dict['tags']:
                 package_dict_tags.append(key['name'])
             package_dict['tags'] = package_dict_tags
-            
+
             # Update old harvest information with current harvest info
             package_dict['extras']['harvest_object_id'] = harvest_object.id
             package_dict['extras']['harvest_source_id']= harvest_object.job.source.id
