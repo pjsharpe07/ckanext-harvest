@@ -39,7 +39,7 @@ class CKANHarvester(HarvesterBase):
             url = url,
         )
 	
-	http_request.add_header("User-Agent", "doi_harvest")
+	http_request.add_header("User-Agent", "data_gov_harvest")
 
         api_key = self.config.get('api_key',None)
         if api_key:
@@ -445,6 +445,8 @@ class CKANHarvester(HarvesterBase):
 
             if('bureauCode' in package_dict['extras']):
                 package_dict['extras']['bureauCode'] = ast.literal_eval(package_dict['extras']['bureauCode'])
+	    if('programCode' in package_dict['extras']):
+                package_dict['extras']['programCode'] = ast.literal_eval(package_dict['extras']['programCode'])
 
             log.debug('Import cleanup complete for: %s' % harvest_object.id)
 
