@@ -502,7 +502,7 @@ class CKANHarvester(HarvesterBase):
                     harvest_object, 'Import')
         except Exception, e:
             self._save_object_error('%r'%e,harvest_object,'Import')
-            log.debug('%r'%e,'ImportError')
+            log.debug('ImportError %r' % e)
 
 class ContentFetchError(Exception):
     pass
