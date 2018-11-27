@@ -39,15 +39,15 @@ class CKANHarvester(HarvesterBase):
             url = url,
         )
 
-	http_request.add_header("User-Agent", "ckanext_harvest")
+        http_request.add_header("User-Agent", "ckanext_harvest")
 
         api_key = self.config.get('api_key',None)
         if api_key:
             http_request.add_header('Authorization',api_key)
 
         try:
-            http_response = urllib2.urlopen(http_request)
-        except urllib2.URLError, e:
+            http_response = urllib2.urlopen(http_request, timeout=180)
+        except urllib2.URLError as e:
             if e.code == 403:
                 raise ContentNotFoundError('Package is no longer publicly available, HTTP 403 response for %s' % url)
             else:
