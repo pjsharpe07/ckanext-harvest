@@ -30,6 +30,9 @@ def harvest_source_show(context,data_dict):
 
     :param id: the id or name of the harvest source
     :type id: string
+    
+    :param url: url of the harvest source (as an alternative to the id)
+    :type url: string
 
     :returns: harvest source metadata
     :rtype: dictionary
