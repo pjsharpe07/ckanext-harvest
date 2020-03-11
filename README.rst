@@ -612,16 +612,16 @@ Title of harvest source  URL for harvest source Number of records in that harves
 ======================= ======================= ========================================
 
 The records count is used if there are a large number of data records. If a record count
-is greater than 3000, then the harvest frequency is set to `MANUAL` so that the harvester isn't
+is greater than ``3000``, then the harvest frequency is set to ``MANUAL`` so that the harvester isn't
 overwhelmed with concurrent requests. These can then be set to the correct frequency manually
 over time, so that the harvester load is more spread out. The default harvest frequency for
 this script is weekly
 
-To run the `harvest_additions.sh` script, you'll need the following flags passed:
+To run the ``harvest_additions.sh`` script, you'll need the following flags passed:
 
 - ``-f``: The path to the csv file (example file at harvest_sources_noaa.csv)
 - ``-k``: The CKAN API key for an administrator that has access
 - ``-o``: The CKAN organization name to create the harvest source under
 - ``-u``: The URL for the CKAN instance you are pushing to
 
-You can see all of this information by running `harvest_additions.sh --help`
+You can see all of this information by running ``harvest_additions.sh --help``
