@@ -3,15 +3,15 @@
 # Author: James Brown
 # ------------------------------------------
 
-# Display Help
-Help()
+# Display help
+help()
 {
     echo "Adds harvest sources from a CSV file"
     echo
     echo "Syntax: harvest_additions [-f|h|k|o]"
     echo "options:"
     echo "[required] -f, --file             Path to CSV file"
-    echo "-h, --help                        Print this Help"
+    echo "-h, --help                        Print this help"
     echo "[required] -k, --api-key          CKAN API key"
     echo "[required] -o, --organization     CKAN organization name"
     echo "-u, --url                         Base URL for CKAN instance"
@@ -35,7 +35,7 @@ case $key in
     shift # past value
     ;;
     -h|--help)
-    Help
+    help
     shift # past argument
     ;;
     -k|--api-key)
@@ -102,9 +102,9 @@ do
         else 
             frequency='WEEKLY'
         fi
-        curl --location --request POST "localhost:8080/api/3/action/harvest_source_create" \
+        curl --location --request POST "$URL/api/3/action/harvest_source_create" \
             --header "Authorization: $API_KEY" \
-            --header 'Content-Type: text/plain' \
+            --header 'Content-Type: application/json' \
             --data-raw "$(generate_harvest_data $frequency)"
     fi
 done < $FILE
