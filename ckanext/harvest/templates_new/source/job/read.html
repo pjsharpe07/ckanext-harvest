@@ -13,14 +13,7 @@
   {% snippet 'snippets/job_details.html', job=c.job %}
 
   {% if c.job.status == 'Finished' %}
-    {% if c.job.summary %}
-        <h2>{{ _('Summary') }}</h2>
-        {% for i in c.job.summary %}
-        <div class="error">
-            {{ i }}
-        </div>
-        {% endfor %}
-    {% endif %}
+
     {% if c.job.object_error_summary|length == 0 and c.job.gather_error_summary|length == 0 %}
       <h2>{{ _('Error Summary') }}</h2>
       <p class="empty">{{ _('No errors for this job') }}</p>
