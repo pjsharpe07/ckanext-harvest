@@ -18,7 +18,7 @@ from ckanext.harvest.interfaces import IHarvester
 import ckanext.harvest.model as harvest_model
 from ckanext.harvest.model import HarvestGatherError, HarvestObjectError, HarvestObject, HarvestJob
 from ckanext.harvest.logic import HarvestJobExists
-from ckanext.harvest.logic.action.update import send_mail, prepare_error_mail, prepare_summary_mail, get_mail_extra_vars
+from ckanext.harvest.logic.action.update import send_mail, prepare_error_mail, prepare_summary_mail, get_mail_extra_vars, get_recipients
 
 
 def call_action_api(action, apikey=None, status=200, **kwargs):
@@ -937,8 +937,20 @@ class TestHarvestMail(FunctionalTestBase):
 
         status = toolkit.get_action('harvest_source_show_status')(context, {'id': harvest_source['id']})
 
+        send_mail(
+            [{'name': 'Jhon', 'email': 'jhon@harveter.com'}],
+            'test subject',
+            'test body'
+        )
+
         assert_equal(1, status['last_job']['stats']['errored'])
         assert mock_mailer_mail_recipient.called
+
+    def test_get_recipients(self):
+        context, harvest_source, job = self._create_harvest_source_with_owner_org_and_job_if_not_existing()
+        recs = get_recipients(context, harvest_source['id'])
+        # just the two admin users
+        assert len(recs) == 2
 
     @patch('ckan.lib.mailer.mail_recipient')
     def test_error_mail_sent_with_object_error(self, mock_mailer_mail_recipient):
@@ -963,6 +975,11 @@ class TestHarvestMail(FunctionalTestBase):
         harvest_object_error.save()
 
         status = toolkit.get_action('harvest_source_show_status')(context, {'id': harvest_source['id']})
+        
+        send_mail(
+            [{'name': 'Jhon', 'email': 'jhon@harveter.com'}],
+            'test subject',
+            'test body')
 
         assert_equal(1, status['last_job']['stats']['errored'])
         assert mock_mailer_mail_recipient.called
@@ -978,6 +995,9 @@ class TestHarvestMail(FunctionalTestBase):
         err.save()
 
         status = toolkit.get_action('harvest_source_show_status')(context, {'id': harvest_source['id']})
+        recs = get_recipients(context, harvest_source['id'])
+        
+        send_mail(recs, 'test subject', 'test body')
 
         assert_equal(1, status['last_job']['stats']['errored'])
         assert mock_mailer_mail_recipient.called
