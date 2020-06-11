@@ -904,22 +904,6 @@ class TestHarvestMail(FunctionalTestBase):
             .format(config.get('ckan.site_title')))
         assert isinstance(body, unicode)
 
-    def test_prepare_summary_mail_error(self):
-        context, harvest_source, job = \
-            self._create_harvest_source_and_job_if_not_existing()
-        status = toolkit.get_action('harvest_source_show_status')(
-            context, {'id': harvest_source['id']})
-        # Create error
-        status['last_job']['stats'].update({'errored': 1})
-        subject, body = prepare_summary_mail(
-            context, harvest_source['id'], status)
-
-        assert_equal(
-            subject,
-            '{} - Harvesting Job with Errors - Summary Notification'
-            .format(config.get('ckan.site_title')))
-        assert isinstance(body, unicode)
-
     def test_prepare_error_mail(self):
         context, harvest_source, job = \
             self._create_harvest_source_and_job_if_not_existing()
