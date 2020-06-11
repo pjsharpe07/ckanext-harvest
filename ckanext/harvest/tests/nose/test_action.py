@@ -867,12 +867,9 @@ class TestHarvestMail(FunctionalTestBase):
 
     @patch('ckan.lib.mailer.mail_recipient')
     def test_mail_sent(self, mock_mailer_mail_recipient):
-        context, harvest_source, job = \
-            self._create_harvest_source_and_job_if_not_existing()
-
+        
         send_mail(
-            context,
-            harvest_source['id'],
+            [{'name': 'Jhon', 'email': 'jhon@harveter.com'}],
             'test subject',
             'test body'
         )
@@ -925,13 +922,6 @@ class TestHarvestMail(FunctionalTestBase):
         status = toolkit.get_action('harvest_source_show_status')(
             context, {'id': harvest_source['id']})
 
-        send_mail(
-            context,
-            harvest_source['id'],
-            'test subject',
-            'test body'
-        )
-
         assert_equal(0, status['last_job']['stats']['errored'])
         assert mock_mailer_mail_recipient.not_called
 
@@ -946,13 +936,6 @@ class TestHarvestMail(FunctionalTestBase):
         err.save()
 
         status = toolkit.get_action('harvest_source_show_status')(context, {'id': harvest_source['id']})
-
-        send_mail(
-            context,
-            harvest_source['id'],
-            'test subject',
-            'test body'
-        )
 
         assert_equal(1, status['last_job']['stats']['errored'])
         assert mock_mailer_mail_recipient.called
@@ -981,13 +964,6 @@ class TestHarvestMail(FunctionalTestBase):
 
         status = toolkit.get_action('harvest_source_show_status')(context, {'id': harvest_source['id']})
 
-        send_mail(
-            context,
-            harvest_source['id'],
-            'test subject',
-            'test body'
-        )
-
         assert_equal(1, status['last_job']['stats']['errored'])
         assert mock_mailer_mail_recipient.called
 
@@ -1002,13 +978,6 @@ class TestHarvestMail(FunctionalTestBase):
         err.save()
 
         status = toolkit.get_action('harvest_source_show_status')(context, {'id': harvest_source['id']})
-
-        send_mail(
-            context,
-            harvest_source['id'],
-            'test subject',
-            'test body'
-        )
 
         assert_equal(1, status['last_job']['stats']['errored'])
         assert mock_mailer_mail_recipient.called
