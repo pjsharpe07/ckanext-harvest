@@ -73,7 +73,7 @@ def harvest_job_dictize(job, context):
                           .order_by('error_count desc') \
                           .limit(context.get('error_summmary_limit', 20))
         out['gather_error_summary'] = q.all()
-
+    # stats to be displayed during a running harvest job
     running_stats = model.Session.query(HarvestObject.state, func.count(HarvestObject.state)) \
             .filter_by(harvest_job_id=job.id) \
             .group_by(HarvestObject.state).all()
